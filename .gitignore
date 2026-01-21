@@ -29,3 +29,6 @@ venv/
 
 # Logs
 *.log
+
+# Secrets / environment
+backend/.env

@@ -1,41 +1,59 @@
 """
 Flask Backend Server for ESP8266 IoT Sensor Data
-Receives sensor data via HTTP POST and stores in SQLite database
+Receives sensor data via HTTP POST and stores in database (SQLite or Supabase)
 """
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from datetime import datetime
-import sqlite3
 import json
 import os
+import sys
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# Add api directory to path
+sys.path.append(os.path.join(os.path.dirname(__file__), 'api'))
+
+# Import API blueprints
+try:
+    from api.predictions import predictions_bp
+    from api.analytics import analytics_bp
+    from api.reports import reports_bp
+    from api.export import export_bp
+    from api.experiments import experiments_bp
+    from api.statistics import statistics_bp
+    from api.comparison import comparison_bp
+except ImportError as e:
+    print(f"Warning: Could not import some API modules: {e}")
+    predictions_bp = None
+    analytics_bp = None
+    reports_bp = None
+    export_bp = None
+    experiments_bp = None
+    statistics_bp = None
+    comparison_bp = None
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for React frontend
 
-# Database configuration
-DB_PATH = 'sensor_data.db'
+# Initialize database (SQLite or Supabase based on environment)
+from database.db import Database
+db = Database()
 
 def init_database():
-    """Initialize SQLite database with sensor data table"""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
+    """Initialize database"""
+    print(f"✓ Database initialized ({db.db_type})")
     
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS sensor_readings (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-            device_id TEXT,
-            temperature REAL,
-            humidity REAL,
-            gas_analog INTEGER,
-            gas_digital INTEGER
-        )
-    ''')
-    
-    conn.commit()
-    conn.close()
-    print("✓ Database initialized")
+    # Initialize experiments tables
+    try:
+        from models.experiments import init_experiments_tables
+        init_experiments_tables()
+        print("✓ Experiments tables initialized")
+    except Exception as e:
+        print(f"Warning: Could not initialize experiments tables: {e}")
 
 @app.route('/api/sensor-data', methods=['POST'])
 def receive_sensor_data():
@@ -50,24 +68,21 @@ def receive_sensor_data():
         gas_analog = data.get('gas_analog')
         gas_digital = data.get('gas_digital')
         
-        # Store in database
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            INSERT INTO sensor_readings 
-            (device_id, temperature, humidity, gas_analog, gas_digital)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (device_id, temperature, humidity, gas_analog, gas_digital))
-        
-        conn.commit()
-        conn.close()
+        # Store in database using abstraction layer
+        reading = db.insert_sensor_reading(
+            device_id=device_id,
+            temperature=temperature,
+            humidity=humidity,
+            gas_analog=gas_analog,
+            gas_digital=gas_digital
+        )
         
         print(f"✓ Data received: T={temperature}°C, H={humidity}%, Gas={gas_analog}")
         
         return jsonify({
             'status': 'success',
-            'message': 'Data stored successfully'
+            'message': 'Data stored successfully',
+            'reading': reading
         }), 201
         
     except Exception as e:
@@ -82,31 +97,16 @@ def get_sensor_data():
     """Get sensor data for dashboard"""
     try:
         limit = request.args.get('limit', 100, type=int)
+        device_id = request.args.get('device_id', None)
+        start_date = request.args.get('start_date', None)
+        end_date = request.args.get('end_date', None)
         
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            SELECT id, timestamp, device_id, temperature, humidity, gas_analog, gas_digital
-            FROM sensor_readings
-            ORDER BY timestamp DESC
-            LIMIT ?
-        ''', (limit,))
-        
-        rows = cursor.fetchall()
-        conn.close()
-        
-        data = []
-        for row in rows:
-            data.append({
-                'id': row[0],
-                'timestamp': row[1],
-                'device_id': row[2],
-                'temperature': row[3],
-                'humidity': row[4],
-                'gas_analog': row[5],
-                'gas_digital': row[6]
-            })
+        data = db.get_sensor_readings(
+            limit=limit,
+            device_id=device_id,
+            start_date=start_date,
+            end_date=end_date
+        )
         
         return jsonify(data), 200
         
@@ -117,26 +117,16 @@ def get_sensor_data():
 def get_latest():
     """Get latest sensor reading"""
     try:
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
+        device_id = request.args.get('device_id', None)
+        reading = db.get_latest_reading(device_id=device_id)
         
-        cursor.execute('''
-            SELECT timestamp, temperature, humidity, gas_analog, gas_digital
-            FROM sensor_readings
-            ORDER BY timestamp DESC
-            LIMIT 1
-        ''')
-        
-        row = cursor.fetchone()
-        conn.close()
-        
-        if row:
+        if reading:
             return jsonify({
-                'timestamp': row[0],
-                'temperature': row[1],
-                'humidity': row[2],
-                'gas_analog': row[3],
-                'gas_digital': row[4]
+                'timestamp': reading['timestamp'],
+                'temperature': reading['temperature'],
+                'humidity': reading['humidity'],
+                'gas_analog': reading['gas_analog'],
+                'gas_digital': reading['gas_digital']
             }), 200
         else:
             return jsonify({'message': 'No data available'}), 404
@@ -148,45 +138,9 @@ def get_latest():
 def get_stats():
     """Get statistics for dashboard"""
     try:
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-        
-        # Get latest 24 hours of data
-        cursor.execute('''
-            SELECT 
-                COUNT(*) as total_readings,
-                AVG(temperature) as avg_temp,
-                MIN(temperature) as min_temp,
-                MAX(temperature) as max_temp,
-                AVG(humidity) as avg_humidity,
-                MIN(humidity) as min_humidity,
-                MAX(humidity) as max_humidity,
-                AVG(gas_analog) as avg_gas,
-                MAX(gas_analog) as max_gas
-            FROM sensor_readings
-            WHERE timestamp >= datetime('now', '-24 hours')
-        ''')
-        
-        row = cursor.fetchone()
-        conn.close()
-        
-        return jsonify({
-            'total_readings': row[0],
-            'temperature': {
-                'average': round(row[1], 1) if row[1] else 0,
-                'min': round(row[2], 1) if row[2] else 0,
-                'max': round(row[3], 1) if row[3] else 0
-            },
-            'humidity': {
-                'average': round(row[4], 1) if row[4] else 0,
-                'min': round(row[5], 1) if row[5] else 0,
-                'max': round(row[6], 1) if row[6] else 0
-            },
-            'gas': {
-                'average': round(row[7], 1) if row[7] else 0,
-                'max': round(row[8], 1) if row[8] else 0
-            }
-        }), 200
+        hours = request.args.get('hours', 24, type=int)
+        stats = db.get_statistics(hours=hours)
+        return jsonify(stats), 200
         
     except Exception as e:
         return jsonify({'error': str(e)}), 400
@@ -200,6 +154,22 @@ def health_check():
         'timestamp': datetime.now().isoformat()
     }), 200
 
+# Register API blueprints
+if predictions_bp:
+    app.register_blueprint(predictions_bp, url_prefix='/api')
+if analytics_bp:
+    app.register_blueprint(analytics_bp, url_prefix='/api/analytics')
+if reports_bp:
+    app.register_blueprint(reports_bp, url_prefix='/api/reports')
+if export_bp:
+    app.register_blueprint(export_bp, url_prefix='/api/export')
+if experiments_bp:
+    app.register_blueprint(experiments_bp, url_prefix='/api')
+if statistics_bp:
+    app.register_blueprint(statistics_bp, url_prefix='/api/statistics')
+if comparison_bp:
+    app.register_blueprint(comparison_bp, url_prefix='/api')
+
 if __name__ == '__main__':
     init_database()
     
@@ -212,6 +182,18 @@ if __name__ == '__main__':
     print("  GET  /api/sensor-data  - Get historical data")
     print("  GET  /api/latest       - Get latest reading")
     print("  GET  /api/stats        - Get statistics")
+    print("  GET  /api/predict/temperature  - Predict temperature")
+    print("  GET  /api/predict/humidity     - Predict humidity")
+    print("  GET  /api/predict/gas          - Predict gas levels")
+    print("  GET  /api/anomalies            - Get anomalies")
+    print("  GET  /api/analytics/statistics - Statistical analysis")
+    print("  GET  /api/analytics/correlation - Correlation matrix")
+    print("  GET  /api/analytics/baseline   - Baseline comparison")
+    print("  GET  /api/analytics/report     - Generate analysis report")
+    print("  POST /api/reports/generate     - Generate PDF report")
+    print("  GET  /api/export/csv           - Export data as CSV")
+    print("  GET  /api/export/json          - Export data as JSON")
+    print("  POST /api/export/excel         - Export data as Excel")
     print("  GET  /health           - Health check")
     print("=" * 50 + "\n")
     

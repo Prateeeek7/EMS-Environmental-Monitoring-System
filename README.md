@@ -2,7 +2,7 @@
 <div align="center">
 
 <!-- Banner -->
-<img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=6,11,20&height=300&section=header&text=Environmental%20Monitoring%20System&fontSize=50&animation=fadeIn&fontAlignY=38&desc=Cloud-Connected%20IoT%20Sensor%20Network%20with%20Real-Time%20Analytics&descAlignY=51&descAlign=62&descSize=20" width="100%" />
+<img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=6,11,20&height=300&section=header&text=Environmental%20Monitoring%20System&fontSize=50&animation=fadeIn&fontAlignY=38&desc=Cloud-Connected%20IoT%20Sensor%20Network%20with%20Real-Time%20Analytics&descAlignY=51&descAlign=62&descSize=14" width="100%" />
 
 <p align="center">
   <a href="https://git.io/typing-svg">

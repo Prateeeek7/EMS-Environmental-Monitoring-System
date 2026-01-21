@@ -25,8 +25,8 @@ const char* password = "";                // Empty for open network (no password
 
 // ========== CLOUD SERVER CONFIGURATION ==========
 // Your computer's IP address on Akashesp hotspot
-// Current IP: 10.108.168.147
-const char* serverUrl = "http://10.108.168.147:5001/api/sensor-data";
+// Current IP: 10.148.123.96
+const char* serverUrl = "http://10.148.123.96:5001/api/sensor-data";
 
 // ========== PIN DEFINITIONS ==========
 #define DHT_PIN 2              // GPIO2 = D4

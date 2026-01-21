@@ -25,8 +25,8 @@ const char* password = "";                // Empty for open network (no password
 
 // ========== CLOUD SERVER CONFIGURATION ==========
 // Your computer's IP address on Akashesp hotspot
-// Current IP: 10.108.168.147
-const char* serverUrl = "http://10.108.168.147:5001/api/sensor-data";
+// Current IP: 10.148.123.96
+const char* serverUrl = "http://10.148.123.96:5001/api/sensor-data";
 
 // ========== PIN DEFINITIONS ==========
 #define DHT_PIN 2              // GPIO2 = D4
@@ -213,6 +213,11 @@ void uploadToCloud() {
   http.begin(wifiClient, serverUrl);
   http.addHeader("Content-Type", "application/json");
   
+  Serial.print("Attempting upload to: ");
+  Serial.println(serverUrl);
+  Serial.print("JSON: ");
+  Serial.println(jsonData);
+  
   int httpCode = http.POST(jsonData);
   
   if (httpCode > 0) {
@@ -225,11 +230,18 @@ void uploadToCloud() {
     if (httpCode == 200 || httpCode == 201) {
       Serial.println(" ✓ SUCCESS");
     } else {
-      Serial.println(" - Response: " + http.getString());
+      String response = http.getString();
+      Serial.print(" - Response: ");
+      Serial.println(response);
     }
   } else {
     Serial.print("✗ Upload failed: ");
+    Serial.print("Error code: ");
+    Serial.print(httpCode);
+    Serial.print(" - ");
     Serial.println(http.errorToString(httpCode));
+    Serial.print("URL was: ");
+    Serial.println(serverUrl);
   }
   
   http.end();
