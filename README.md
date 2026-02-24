@@ -311,4 +311,7 @@ For exact versions, refer to the respective `requirements.txt` files.
 
 ## License
 
-This project is licensed under the MIT License. See the `LICENSE` file (or project header) for details.
+This project is licensed under the MIT License. 
+
+---
+Pratik Kumar
