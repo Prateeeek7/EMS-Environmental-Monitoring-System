@@ -14,18 +14,24 @@ lsof -ti:5001 | xargs kill -9 2>/dev/null && echo "   ✓ Killed backend process
 lsof -ti:3000,3001,5173 | xargs kill -9 2>/dev/null && echo "   ✓ Killed frontend processes" || echo "   ℹ No frontend processes found"
 sleep 2
 
-# Start backend
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+
+# Start backend (use venv so TensorFlow/LSTM models load; otherwise fallback = linear predictions)
 echo ""
 echo "2. Starting backend server..."
-cd "$(dirname "$0")/backend"
-python3 server.py > server.log 2>&1 &
+cd "$ROOT/backend"
+if [ -f .venv/bin/activate ]; then
+  source .venv/bin/activate && python3 server.py > server.log 2>&1 &
+else
+  python3 server.py > server.log 2>&1 &
+fi
 BACKEND_PID=$!
 echo "   ✓ Backend started (PID: $BACKEND_PID)"
 
 # Start frontend
 echo ""
 echo "3. Starting frontend server..."
-cd "$(dirname "$0")/frontend"
+cd "$ROOT/frontend"
 npm run dev > frontend.log 2>&1 &
 FRONTEND_PID=$!
 echo "   ✓ Frontend started (PID: $FRONTEND_PID)"

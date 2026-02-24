@@ -1,12 +1,15 @@
 /*
  * ESP8266 IoT Sensor Monitor with WiFi Cloud Integration
- * 
- * Sensors: DHT11 (Temp/Humidity), MQ-6 (Gas), LCD I2C (Display)
- * Features: WiFi connectivity, Cloud data upload, Local LCD display
- * 
+ *
+ * Sensors: DHT11 (Temp/Humidity), MQ-6 (Gas), LDR (Light), Soil Moisture, LCD I2C (Display)
+ * MQ-6, LDR, Soil share A0 via CD4051 multiplexer.
+ *
  * Hardware:
- * - DHT11: Data → D4 (GPIO2), 8.2kΩ pull-up, VCC → 3.3V
- * - MQ-6:  AOUT → A0, DOUT → D5, VCC → 5V
+ * - DHT11: Data → D4 (GPIO2), 10kΩ pull-up, VCC → 3.3V
+ * - MQ-6:  AOUT → CD4051 ch0 → A0, VCC → 5V
+ * - LDR:   AOUT → CD4051 ch1 → A0, VCC → 3.3V
+ * - Soil:  AOUT → CD4051 ch2 → A0, VCC → 3.3V
+ * - CD4051: S0→GPIO12(D6), S1→GPIO13(D7), S2→GPIO14(D5), common→A0
  * - LCD:   SDA → D2 (GPIO4), SCL → D1 (GPIO5), VCC → 3.3V
  */
 
@@ -31,8 +34,10 @@ const char* serverUrl = "http://10.148.123.96:5001/api/sensor-data";
 // ========== PIN DEFINITIONS ==========
 #define DHT_PIN 2              // GPIO2 = D4
 #define DHT_TYPE DHT11
-#define MQ6_ANALOG A0
-#define MQ6_DIGITAL 14         // GPIO14 = D5
+#define MUX_ANALOG A0          // CD4051 common output
+#define MUX_S0 12              // GPIO12 = D6, channel select
+#define MUX_S1 13              // GPIO13 = D7
+#define MUX_S2 14              // GPIO14 = D5
 
 // ========== LCD SETUP ==========
 #define LCD_ADDRESS 0x27
@@ -47,6 +52,8 @@ float temperature = 0.0;
 float humidity = 0.0;
 int gasAnalog = 0;
 int gasDigital = 0;
+int lightLevel = 0;    // LDR: 0-1023
+int soilMoisture = 0; // Soil: 0-1023
 
 unsigned long lastSensorRead = 0;
 unsigned long lastCloudUpload = 0;
@@ -62,6 +69,7 @@ int uploadCount = 0;
 
 // Function declarations
 void connectWiFi();
+void setMuxChannel(int ch);
 void readSensors();
 void uploadToCloud();
 void updateLCD();
@@ -78,7 +86,9 @@ void setup() {
   // ========== SENSORS INITIALIZATION ==========
   Serial.println("Initializing sensors...");
   dht.begin();
-  pinMode(MQ6_DIGITAL, INPUT);
+  pinMode(MUX_S0, OUTPUT);
+  pinMode(MUX_S1, OUTPUT);
+  pinMode(MUX_S2, OUTPUT);
   
   // ========== LCD INITIALIZATION ==========
   Wire.begin(4, 5);  // SDA, SCL
@@ -132,7 +142,7 @@ void loop() {
   // Update LCD display
   if (currentMillis - lastDisplayUpdate >= DISPLAY_INTERVAL) {
     lastDisplayUpdate = currentMillis;
-    displayMode = (displayMode + 1) % 4;  // 4 screens
+    displayMode = (displayMode + 1) % 6;  // 6 screens (added LDR, Soil)
   }
   updateLCD();
   
@@ -186,12 +196,25 @@ void connectWiFi() {
   }
 }
 
+// ========== CD4051: select channel 0..7 ==========
+void setMuxChannel(int ch) {
+  digitalWrite(MUX_S0, (ch & 1) ? HIGH : LOW);
+  digitalWrite(MUX_S1, (ch & 2) ? HIGH : LOW);
+  digitalWrite(MUX_S2, (ch & 4) ? HIGH : LOW);
+  delay(2);  // settle
+}
+
 // ========== READ SENSORS ==========
 void readSensors() {
   temperature = dht.readTemperature();
   humidity = dht.readHumidity();
-  gasAnalog = analogRead(MQ6_ANALOG);
-  gasDigital = digitalRead(MQ6_DIGITAL);
+  setMuxChannel(0);
+  gasAnalog = analogRead(MUX_ANALOG);
+  gasDigital = 0;  // not used with CD4051
+  setMuxChannel(1);
+  lightLevel = analogRead(MUX_ANALOG);
+  setMuxChannel(2);
+  soilMoisture = analogRead(MUX_ANALOG);
 }
 
 // ========== UPLOAD TO CLOUD ==========
@@ -200,12 +223,14 @@ void uploadToCloud() {
   
   HTTPClient http;
   
-  // Create JSON payload
+  // Create JSON payload (same as before + light_level, soil_moisture)
   String jsonData = "{";
   jsonData += "\"temperature\":" + String(temperature, 1) + ",";
   jsonData += "\"humidity\":" + String(humidity, 1) + ",";
   jsonData += "\"gas_analog\":" + String(gasAnalog) + ",";
   jsonData += "\"gas_digital\":" + String(gasDigital) + ",";
+  jsonData += "\"light_level\":" + String(lightLevel) + ",";
+  jsonData += "\"soil_moisture\":" + String(soilMoisture) + ",";
   jsonData += "\"timestamp\":" + String(millis()) + ",";
   jsonData += "\"device_id\":\"ESP8266_" + WiFi.macAddress() + "\"";
   jsonData += "}";
@@ -259,9 +284,15 @@ void printSerialData() {
   Serial.print(" / 1024 (");
   Serial.print((gasAnalog / 1024.0) * 100, 1);
   Serial.println("%)");
-  Serial.print("  Digital: ");
-  Serial.println(gasDigital == HIGH ? "HIGH" : "LOW");
-  
+
+  Serial.println("\nLDR (Light):");
+  Serial.print("  Raw: ");
+  Serial.println(lightLevel);
+
+  Serial.println("Soil Moisture:");
+  Serial.print("  Raw: ");
+  Serial.println(soilMoisture);
+
   Serial.print("\nWiFi: ");
   Serial.print(wifiConnected ? "✓ Connected (" : "✗ Disconnected");
   if (wifiConnected) {
@@ -348,6 +379,28 @@ void updateLCD() {
         lcd.setCursor(0, 1);
         lcd.print("Reconnecting... ");
       }
+      break;
+    }
+
+    case 4:  // LDR (Light)
+    {
+      lcd.setCursor(0, 0);
+      lcd.print("Light: ");
+      lcd.print(lightLevel);
+      lcd.print("     ");
+      lcd.setCursor(0, 1);
+      lcd.print(lightLevel > 512 ? "Bright    " : "Dark      ");
+      break;
+    }
+
+    case 5:  // Soil Moisture
+    {
+      lcd.setCursor(0, 0);
+      lcd.print("Soil: ");
+      lcd.print(soilMoisture);
+      lcd.print("     ");
+      lcd.setCursor(0, 1);
+      lcd.print(soilMoisture > 512 ? "Wet       " : "Dry       ");
       break;
     }
   }

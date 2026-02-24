@@ -15,19 +15,19 @@ def export_training_data():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
-    # Fetch all data
-    cursor.execute('''
-        SELECT 
-            id,
-            timestamp,
-            device_id,
-            temperature,
-            humidity,
-            gas_analog,
-            gas_digital
-        FROM sensor_readings
-        ORDER BY timestamp ASC
-    ''')
+    # Fetch all data (include light_level, soil_moisture if columns exist)
+    try:
+        cursor.execute('''
+            SELECT id, timestamp, device_id, temperature, humidity, gas_analog, gas_digital, light_level, soil_moisture
+            FROM sensor_readings
+            ORDER BY timestamp ASC
+        ''')
+    except sqlite3.OperationalError:
+        cursor.execute('''
+            SELECT id, timestamp, device_id, temperature, humidity, gas_analog, gas_digital
+            FROM sensor_readings
+            ORDER BY timestamp ASC
+        ''')
     
     rows = cursor.fetchall()
     conn.close()
@@ -35,7 +35,7 @@ def export_training_data():
     # Convert to list of dictionaries
     data = []
     for row in rows:
-        data.append({
+        rec = {
             'id': row[0],
             'timestamp': row[1],
             'device_id': row[2],
@@ -43,7 +43,11 @@ def export_training_data():
             'humidity': row[4],
             'gas_analog': row[5],
             'gas_digital': row[6]
-        })
+        }
+        if len(row) > 8:
+            rec['light_level'] = row[7]
+            rec['soil_moisture'] = row[8]
+        data.append(rec)
     
     # Create output structure with metadata
     output = {

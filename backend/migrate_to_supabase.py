@@ -21,16 +21,26 @@ def migrate_data():
     sqlite_db = sqlite3.connect(sqlite_path)
     cursor = sqlite_db.cursor()
     
-    # Get all data
-    cursor.execute('''
-        SELECT device_id, timestamp, temperature, humidity, gas_analog, gas_digital
-        FROM sensor_readings
-        ORDER BY timestamp ASC
-    ''')
+    # Get all data (include light_level, soil_moisture if columns exist)
+    try:
+        cursor.execute('''
+            SELECT device_id, timestamp, temperature, humidity, gas_analog, gas_digital, light_level, soil_moisture
+            FROM sensor_readings
+            ORDER BY timestamp ASC
+        ''')
+    except sqlite3.OperationalError:
+        cursor.execute('''
+            SELECT device_id, timestamp, temperature, humidity, gas_analog, gas_digital
+            FROM sensor_readings
+            ORDER BY timestamp ASC
+        ''')
     rows = cursor.fetchall()
     sqlite_db.close()
     
-    print(f"Found {len(rows)} records to migrate")
+    n_cols = len(rows[0]) if rows else 0
+    has_light_soil = n_cols >= 8
+    
+    print(f"Found {len(rows)} records to migrate (light_level/soil_moisture: {has_light_soil})")
     
     if len(rows) == 0:
         print("No data to migrate")
@@ -55,7 +65,9 @@ def migrate_data():
                     humidity=row[3],
                     gas_analog=row[4] or 0,
                     gas_digital=row[5] or 0,
-                    timestamp=row[1] if row[1] else None
+                    timestamp=row[1] if row[1] else None,
+                    light_level=row[6] if has_light_soil and len(row) > 6 else None,
+                    soil_moisture=row[7] if has_light_soil and len(row) > 7 else None
                 )
                 imported += 1
             except Exception as e:

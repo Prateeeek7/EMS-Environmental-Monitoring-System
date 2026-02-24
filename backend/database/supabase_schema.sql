@@ -6,8 +6,14 @@ CREATE TABLE IF NOT EXISTS sensor_readings (
     temperature REAL,
     humidity REAL,
     gas_analog INTEGER,
-    gas_digital INTEGER
+    gas_digital INTEGER,
+    light_level INTEGER,
+    soil_moisture INTEGER
 );
+
+-- If table already exists, add new columns (run once):
+-- ALTER TABLE sensor_readings ADD COLUMN IF NOT EXISTS light_level INTEGER;
+-- ALTER TABLE sensor_readings ADD COLUMN IF NOT EXISTS soil_moisture INTEGER;
 
 -- Create index for faster queries
 CREATE INDEX IF NOT EXISTS idx_sensor_readings_timestamp ON sensor_readings(timestamp DESC);

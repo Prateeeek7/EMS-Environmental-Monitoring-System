@@ -58,7 +58,7 @@ class Database:
         print(f"✓ Connected to SQLite: {self.db_path}")
     
     def _ensure_table_exists(self):
-        """Ensure SQLite table exists"""
+        """Ensure SQLite table exists and has light_level, soil_moisture columns"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute('''
@@ -69,16 +69,27 @@ class Database:
                 temperature REAL,
                 humidity REAL,
                 gas_analog INTEGER,
-                gas_digital INTEGER
+                gas_digital INTEGER,
+                light_level INTEGER,
+                soil_moisture INTEGER
             )
         ''')
         conn.commit()
+        # Add new columns to existing tables (no-op if already present)
+        for col in ('light_level', 'soil_moisture'):
+            try:
+                cursor.execute(f'ALTER TABLE sensor_readings ADD COLUMN {col} INTEGER')
+                conn.commit()
+            except sqlite3.OperationalError:
+                pass  # column already exists
         conn.close()
     
     def insert_sensor_reading(self, device_id: str, temperature: float, 
                              humidity: float, gas_analog: int, gas_digital: int,
-                             timestamp: Optional[str] = None) -> Dict[str, Any]:
-        """Insert a new sensor reading"""
+                             timestamp: Optional[str] = None,
+                             light_level: Optional[int] = None,
+                             soil_moisture: Optional[int] = None) -> Dict[str, Any]:
+        """Insert a new sensor reading (same record includes light_level, soil_moisture)"""
         if timestamp is None:
             timestamp = datetime.now().isoformat()
         
@@ -88,7 +99,9 @@ class Database:
             'humidity': humidity,
             'gas_analog': gas_analog,
             'gas_digital': gas_digital,
-            'timestamp': timestamp
+            'timestamp': timestamp,
+            'light_level': light_level,
+            'soil_moisture': soil_moisture
         }
         
         if self.use_supabase and SUPABASE_AVAILABLE:
@@ -100,15 +113,15 @@ class Database:
             if timestamp:
                 cursor.execute('''
                     INSERT INTO sensor_readings 
-                    (device_id, temperature, humidity, gas_analog, gas_digital, timestamp)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                ''', (device_id, temperature, humidity, gas_analog, gas_digital, timestamp))
+                    (device_id, temperature, humidity, gas_analog, gas_digital, timestamp, light_level, soil_moisture)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (device_id, temperature, humidity, gas_analog, gas_digital, timestamp, light_level, soil_moisture))
             else:
                 cursor.execute('''
                     INSERT INTO sensor_readings 
-                    (device_id, temperature, humidity, gas_analog, gas_digital)
-                    VALUES (?, ?, ?, ?, ?)
-                ''', (device_id, temperature, humidity, gas_analog, gas_digital))
+                    (device_id, temperature, humidity, gas_analog, gas_digital, light_level, soil_moisture)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                ''', (device_id, temperature, humidity, gas_analog, gas_digital, light_level, soil_moisture))
             conn.commit()
             reading_id = cursor.lastrowid
             conn.close()
@@ -151,7 +164,7 @@ class Database:
             
             where_clause = " WHERE " + " AND ".join(conditions) if conditions else ""
             query = f'''
-                SELECT id, timestamp, device_id, temperature, humidity, gas_analog, gas_digital
+                SELECT id, timestamp, device_id, temperature, humidity, gas_analog, gas_digital, light_level, soil_moisture
                 FROM sensor_readings
                 {where_clause}
                 ORDER BY timestamp DESC
@@ -170,7 +183,9 @@ class Database:
                 'temperature': row[3],
                 'humidity': row[4],
                 'gas_analog': row[5],
-                'gas_digital': row[6]
+                'gas_digital': row[6],
+                'light_level': row[7] if len(row) > 7 else None,
+                'soil_moisture': row[8] if len(row) > 8 else None
             } for row in rows]
     
     def get_latest_reading(self, device_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
@@ -184,30 +199,34 @@ class Database:
         start_date = (datetime.now() - timedelta(hours=hours)).isoformat()
         
         if self.use_supabase and SUPABASE_AVAILABLE:
-            result = self.client.table('sensor_readings').select('temperature, humidity, gas_analog').gte('timestamp', start_date).execute()
+            result = self.client.table('sensor_readings').select('temperature, humidity, gas_analog, light_level, soil_moisture').gte('timestamp', start_date).execute()
             data = result.data if result.data else []
         else:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
             cursor.execute('''
-                SELECT temperature, humidity, gas_analog
+                SELECT temperature, humidity, gas_analog, light_level, soil_moisture
                 FROM sensor_readings
                 WHERE timestamp >= ?
             ''', (start_date,))
-            data = [{'temperature': r[0], 'humidity': r[1], 'gas_analog': r[2]} 
-                   for r in cursor.fetchall()]
+            rows = cursor.fetchall()
             conn.close()
+            data = [{'temperature': r[0], 'humidity': r[1], 'gas_analog': r[2],
+                     'light_level': r[3] if len(r) > 3 else None, 'soil_moisture': r[4] if len(r) > 4 else None}
+                    for r in rows]
         
         if not data:
             return {
                 'total_readings': 0,
                 'temperature': {'average': 0, 'min': 0, 'max': 0},
                 'humidity': {'average': 0, 'min': 0, 'max': 0},
-                'gas': {'average': 0, 'max': 0}
+                'gas': {'average': 0, 'max': 0},
+                'light_level': {'average': 0, 'max': 0},
+                'soil_moisture': {'average': 0, 'max': 0}
             }
         
         df = pd.DataFrame(data)
-        return {
+        out = {
             'total_readings': len(df),
             'temperature': {
                 'average': round(df['temperature'].mean(), 1),
@@ -224,6 +243,15 @@ class Database:
                 'max': round(df['gas_analog'].max(), 1)
             }
         }
+        if 'light_level' in df.columns and df['light_level'].notna().any():
+            out['light_level'] = {'average': round(df['light_level'].mean(), 1), 'max': int(df['light_level'].max())}
+        else:
+            out['light_level'] = {'average': 0, 'max': 0}
+        if 'soil_moisture' in df.columns and df['soil_moisture'].notna().any():
+            out['soil_moisture'] = {'average': round(df['soil_moisture'].mean(), 1), 'max': int(df['soil_moisture'].max())}
+        else:
+            out['soil_moisture'] = {'average': 0, 'max': 0}
+        return out
     
     def get_sensor_reading_by_id(self, reading_id: int) -> Optional[Dict[str, Any]]:
         """Get a specific reading by ID"""
@@ -234,7 +262,7 @@ class Database:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
             cursor.execute('''
-                SELECT id, timestamp, device_id, temperature, humidity, gas_analog, gas_digital
+                SELECT id, timestamp, device_id, temperature, humidity, gas_analog, gas_digital, light_level, soil_moisture
                 FROM sensor_readings
                 WHERE id = ?
             ''', (reading_id,))
@@ -249,7 +277,9 @@ class Database:
                     'temperature': row[3],
                     'humidity': row[4],
                     'gas_analog': row[5],
-                    'gas_digital': row[6]
+                    'gas_digital': row[6],
+                    'light_level': row[7] if len(row) > 7 else None,
+                    'soil_moisture': row[8] if len(row) > 8 else None
                 }
             return None
     
@@ -258,7 +288,7 @@ class Database:
                       limit: Optional[int] = None) -> pd.DataFrame:
         """Load data as pandas DataFrame (for ML training)"""
         if self.use_supabase and SUPABASE_AVAILABLE:
-            query = self.client.table('sensor_readings').select('timestamp, temperature, humidity, gas_analog, gas_digital')
+            query = self.client.table('sensor_readings').select('timestamp, temperature, humidity, gas_analog, gas_digital, light_level, soil_moisture')
             
             if start_date:
                 query = query.gte('timestamp', start_date)
@@ -273,7 +303,7 @@ class Database:
             df = pd.DataFrame(result.data if result.data else [])
         else:
             conn = sqlite3.connect(self.db_path)
-            query = "SELECT timestamp, temperature, humidity, gas_analog, gas_digital FROM sensor_readings"
+            query = "SELECT timestamp, temperature, humidity, gas_analog, gas_digital, light_level, soil_moisture FROM sensor_readings"
             conditions = []
             
             if start_date:
@@ -292,7 +322,14 @@ class Database:
             conn.close()
         
         if not df.empty:
-            df['timestamp'] = pd.to_datetime(df['timestamp'])
+            # Be robust to different timestamp formats (ISO8601, with/without 'T')
+            try:
+                df['timestamp'] = pd.to_datetime(df['timestamp'], format='ISO8601', errors='coerce')
+            except TypeError:
+                # Older pandas without ISO8601 format support
+                df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
+            # Drop any rows that could not be parsed
+            df = df.dropna(subset=['timestamp'])
             df = df.sort_values('timestamp').reset_index(drop=True)
         
         return df

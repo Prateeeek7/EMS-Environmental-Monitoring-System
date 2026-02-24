@@ -56,7 +56,9 @@ def import_training_data():
                     humidity=record.get('humidity'),
                     gas_analog=record.get('gas_analog', 0),
                     gas_digital=record.get('gas_digital', 0),
-                    timestamp=timestamp
+                    timestamp=timestamp,
+                    light_level=record.get('light_level'),
+                    soil_moisture=record.get('soil_moisture')
                 )
                 imported += 1
             except Exception as e:

@@ -11,18 +11,26 @@ from datetime import datetime
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
 import warnings
+
 warnings.filterwarnings('ignore')
 
-# Try to import TensorFlow/Keras, fall back to simple models if not available
+# Try to import TensorFlow/Keras, but be robust to any import-time errors
 try:
     from tensorflow import keras
     from tensorflow.keras.models import Sequential
     from tensorflow.keras.layers import LSTM, Dense, Dropout
     from tensorflow.keras.optimizers import Adam
     TENSORFLOW_AVAILABLE = True
-except ImportError:
+except Exception as e:
+    # Catch all exceptions so environment issues (e.g. ml_dtypes float8) don't crash training
     TENSORFLOW_AVAILABLE = False
-    print("TensorFlow not available. Will use simpler models.")
+    keras = None
+    err_msg = str(e).lower()
+    hint = ""
+    if "float8_e3m4" in err_msg or "ml_dtypes" in err_msg:
+        hint = " Try: pip install --upgrade ml-dtypes  (then run this script again with the same Python)."
+    print(f"TensorFlow not available ({type(e).__name__}: {e}). "
+          f"LSTM models will be skipped; anomaly detector will still be trained.{hint}")
 
 from ml.preprocessing import DataPreprocessor
 
@@ -56,14 +64,13 @@ class ModelTrainer:
             print(f"Insufficient data for training. Need at least {sequence_length + 100} samples.")
             return None
         
-        train_data, test_data, scaler = self.preprocessor.prepare_time_series(
+        result = self.preprocessor.prepare_time_series(
             df, target_column, sequence_length=sequence_length
         )
-        
-        if train_data is None:
+        if result[0] is None or result[2] is None:
             print("Failed to prepare time-series data.")
             return None
-            
+        train_data, test_data, scaler_x, scaler_y = result
         X_train, y_train = train_data
         X_test, y_test = test_data
         
@@ -101,10 +108,10 @@ class ModelTrainer:
         model.save(model_path)
         print(f"Model saved to {model_path}")
         
-        # Save scaler
+        # Save both X and y scalers (y_scaler needed to convert predictions back to real units)
         scaler_path = os.path.join(MODEL_DIR, f'scaler_{target_column}.pkl')
         with open(scaler_path, 'wb') as f:
-            pickle.dump(scaler, f)
+            pickle.dump({'X': scaler_x, 'y': scaler_y}, f)
         
         return {
             'model_path': model_path,
@@ -159,11 +166,24 @@ class ModelTrainer:
         }
     
     def train_all_models(self):
-        """Train all models"""
+        """Train all models using real data from the database"""
         results = {}
-        
-        # Train prediction models
-        for target in ['temperature', 'humidity', 'gas_analog']:
+
+        # Load data once to see which columns exist
+        df = self.preprocessor.load_data()
+        if df.empty:
+            print("No data in database. Add sensor data first.")
+            return results
+        # All 5 parameters: train LSTM for each that has enough data
+        sequence_length = 60
+        target_columns = ['temperature', 'humidity', 'gas_analog', 'light_level', 'soil_moisture']
+        for target in target_columns:
+            if target not in df.columns:
+                print(f"Skipping {target}: column not in database.")
+                continue
+            if df[target].dropna().size < sequence_length + 100:
+                print(f"Skipping {target}: need at least {sequence_length + 100} samples (have {df[target].dropna().size}).")
+                continue
             try:
                 result = self.train_lstm_model(target, epochs=30, batch_size=32)
                 if result:

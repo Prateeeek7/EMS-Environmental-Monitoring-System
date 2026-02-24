@@ -18,12 +18,11 @@ export_bp = Blueprint('export', __name__)
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'sensor_data.db')
 
 def get_sensor_data(start_date=None, end_date=None, device_id=None, metrics=None):
-    """Fetch sensor data with optional filtering"""
+    """Fetch sensor data with optional filtering (includes light_level, soil_moisture when present)"""
     conn = sqlite3.connect(DB_PATH)
     
-    query = "SELECT id, timestamp, device_id, temperature, humidity, gas_analog, gas_digital FROM sensor_readings WHERE 1=1"
+    query = "SELECT id, timestamp, device_id, temperature, humidity, gas_analog, gas_digital, light_level, soil_moisture FROM sensor_readings WHERE 1=1"
     params = []
-    
     if start_date:
         query += " AND timestamp >= ?"
         params.append(start_date)
@@ -33,15 +32,25 @@ def get_sensor_data(start_date=None, end_date=None, device_id=None, metrics=None
     if device_id:
         query += " AND device_id = ?"
         params.append(device_id)
-    
     query += " ORDER BY timestamp ASC"
     
-    df = pd.read_sql_query(query, conn, params=params)
+    try:
+        df = pd.read_sql_query(query, conn, params=params)
+    except sqlite3.OperationalError:
+        query = "SELECT id, timestamp, device_id, temperature, humidity, gas_analog, gas_digital FROM sensor_readings WHERE 1=1"
+        if start_date:
+            query += " AND timestamp >= ?"
+        if end_date:
+            query += " AND timestamp <= ?"
+        if device_id:
+            query += " AND device_id = ?"
+        query += " ORDER BY timestamp ASC"
+        df = pd.read_sql_query(query, conn, params=params)
     conn.close()
     
     if metrics:
         # Filter columns
-        available_cols = ['id', 'timestamp', 'device_id', 'temperature', 'humidity', 'gas_analog', 'gas_digital']
+        available_cols = ['id', 'timestamp', 'device_id', 'temperature', 'humidity', 'gas_analog', 'gas_digital', 'light_level', 'soil_moisture']
         valid_metrics = [m for m in metrics if m in available_cols]
         if valid_metrics:
             df = df[valid_metrics]

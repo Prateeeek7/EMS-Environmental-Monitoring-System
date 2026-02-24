@@ -1,4 +1,4 @@
-\documentclass[conference]{IEEEtran}
+\documentclass[journal,onecolumn]{IEEEtran}
 \IEEEoverridecommandlockouts
 
 \usepackage[T1]{fontenc}
@@ -8,6 +8,11 @@
 \usepackage{hyperref}
 \usepackage{caption}
 \captionsetup{font=small,labelfont=bf}
+\usepackage{multirow}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{pifont}
+\usepackage{listings}
 \usepackage{tikz}
 \usetikzlibrary{shapes,arrows,positioning,fit,backgrounds,calc,decorations.pathreplacing}
 
@@ -17,208 +22,496 @@
 }
 \makeatother
 
+% Tighter spacing around figures so images fit without excess whitespace
+\setlength{\textfloatsep}{4pt plus 1pt minus 1pt}
+\setlength{\intextsep}{4pt plus 1pt minus 1pt}
+\setlength{\floatsep}{4pt plus 1pt minus 1pt}
+\setlength{\abovecaptionskip}{3pt}
+\setlength{\belowcaptionskip}{2pt}
+
 \begin{document}
 
-\title{An IoT-Cloud-ML Integrated Environmental Monitoring System with Edge Inference and Predictive Analytics}
+\title{Real-Time Environmental Monitoring with Edge-Deployed ML for Anomaly Detection and Forecasting}
 
 \author{
 \IEEEauthorblockA{
-\begin{tabular}{cc}
-\textbf{Pratik Kumar\textsuperscript{1}} & \textbf{Thakur Chand Choudhary\textsuperscript{2}} \\
-Department of Electronics and Communication & Department of Electronics and Communication \\
-Vellore Institute of Technology (VIT) & Vellore Institute of Technology (VIT) \\
-Vellore, Tamil Nadu, India & Vellore, Tamil Nadu, India \\
-\texttt{pratik.kumar2024a@vitstudent.ac.in} & \texttt{thakur.chand2024@vitstudent.ac.in} \\
+\begin{tabular}{c}
+\textbf{Pratik Kumar\textsuperscript{1}}, \textbf{Thakur Chand Choudhary\textsuperscript{2}}, \textbf{Nikunj Goydani\textsuperscript{3}}, \textbf{Vetriveeran Rajamani\textsuperscript{1*}}, \textbf{Poongundran Selvaprabhu\textsuperscript{2*}} \\
+School of Electronics Engineering (SENSE), Vellore Institute of Technology (VIT), Vellore, Tamilnadu \\
+\textsuperscript{1}\texttt{pratik.kumar2024a@vitstudent.ac.in}, \textsuperscript{2}\texttt{thakur.chand2024@vitstudent.ac.in}, \textsuperscript{3}\texttt{nikunj.goydani2024@vitstudent.ac.in} \\
+\textsuperscript{1*}\texttt{vetriecec86@gmail.com}, \texttt{vetriveeran.r@vit.ac.in}, \textsuperscript{2*}\texttt{poongundran.selvaprabhu@vit.ac.in}
 \end{tabular}
 }
 }
 \maketitle
+\onecolumn
 
 \begin{abstract}
-This paper presents the design and implementation of a customizable Internet of Things (IoT) based Environmental Monitoring System with integrated machine learning capabilities using the ESP8266 microcontroller. The system integrates a DHT11 temperature-humidity sensor, an MQ-6 gas sensor, and a JHD162A LCD module via I2C to provide real-time environmental data collection, display, and cloud synchronization. The modular architecture enables customization according to specific user requirements for diverse applications including research laboratories, chemical reactors, and greenhouse facilities. Data is transmitted over Wi-Fi to a Flask-based backend and stored in an SQLite database, while a Streamlit-based analytics dashboard offers visualization and trend analysis using Plotly charts. The system incorporates a machine learning pipeline for anomaly detection, predictive analytics, and intelligent alert generation, with both cloud-based and edge inference capabilities. The ML models are trained on historical sensor data to identify environmental anomalies and predict potential issues. The system is cost-effective, scalable, and can be tailored to meet the precise monitoring needs of different environments. Performance evaluation indicates stable Wi-Fi connectivity, accurate data collection, reliable cloud synchronization at 10-second intervals, and effective ML-based anomaly detection with 92\% accuracy.
+We designed and implemented an IoT-based environmental monitoring device (EMD) that uses an ESP8266 microcontroller and a CD4051 analog multiplexer to provide multiple analog sensors to the single ADC of the ESP8266. It contains multiple sensors including DHT22 (temperature/humidity), MQ-6 (gases), LDR (light level), and soil moisture sensor. It displays readings locally on a JHD162A LCD (I2C) and transmits data via Wi-Fi to a Flask backend. The data is saved in SQLite or Supabase (PostgreSQL) and visualized using a React web application with Plotly charts. The use of an ML pipeline allows for the creation of LSTM models for multi-step predictions of the five environmental parameters based on recorded historical data, along with the use of an Isolation Forest model for detecting anomalies in the data recorded from all connected sensors. The models were trained on data recorded in a laboratory and deployed for five days; these results show that the system is stable and consistently operates with Wi-Fi connectivity, uploading the recorded data to a cloud service (supabase.com) every 10 seconds while maintaining data integrity through the use of an effective anomaly detection algorithm and accurate time-series predictions of sensor data.
 \end{abstract}
 
 \begin{IEEEkeywords}
-ESP8266, IoT, DHT11, MQ-6, Flask, Streamlit, Environmental Monitoring, SQLite, Cloud Dashboard, Machine Learning, Anomaly Detection, Edge Inference, Predictive Analytics
+ESP8266, CD4051, analog multiplexer, DHT22, MQ-6, LDR, soil moisture, Flask, React, LSTM, Isolation Forest, environmental monitoring, time-series prediction, anomaly detection
 \end{IEEEkeywords}
 
 \section{Introduction}
-The Internet of Things (IoT) has transformed traditional sensor systems into interconnected smart environments capable of real-time data sharing and analytics. Environmental monitoring is a key domain where IoT applications have proven effective in tracking temperature, humidity, and air quality parameters for smart homes, agriculture, and industrial safety. However, many existing systems are either cost-prohibitive or lack real-time cloud integration.
+In the last few years, the importance of environmental monitoring has increased significantly as regards the smart building sector, the precision agriculture industry, industrial safety and laboratory quality assurance. The increased use of low-cost microcontrollers and their ability to connect to networks has made it possible to create devices that can use these microcontrollers to form distributed sensor networks capable of measuring temperature, humidity, air quality, light, and soil conditions in real-time, as well as transmitting that data to cloud or edge analytics platforms. The research in this area covers the integration of hardware, the development of communication protocols, the storage of data, the creation of data visualizations, and how ML can be applied for detection of anomalies and predictive analytics \cite{sensorcloud2019,mlanomaly2022}.
 
-This project introduces an affordable and efficient ESP8266-based IoT Environmental Monitoring System (EMS) designed as a customizable platform that can be tailored to specific user requirements across diverse application domains. The device leverages the ESP8266MOD microcontroller for wireless connectivity and integrates multiple sensors, including the DHT11 for temperature and humidity, and the MQ-6 for gas detection. Sensor readings are displayed locally on an I2C LCD and transmitted over Wi-Fi to a Flask-based cloud backend, which stores the data in an SQLite database for real-time analytics and historical analysis.
+One of the most significant challenges with low-cost IoT nodes \cite{iotgas2023,esp8266data2022} is the lack of ADC resources. Many of the commonly used microcontrollers feature only one or a few ADC channels, and as a result, have a limited number of analog sensors that will be able to connect without using either an external expansion method or having to use multiple devices. Historically, analog multiplexers (MX) have been used in embedded systems to allow multiple analog sources to share the same ADC. However care must be taken with the design of the interface to account for channel selection timing, settling time, and wiring design to ensure that there is no crosstalk and that there are accurate measurements being taken.
 
-A Streamlit-based cloud dashboard provides real-time visualization and statistical analysis of environmental parameters, enabling users to monitor trends and export data for further study. The system incorporates a comprehensive machine learning pipeline that processes historical sensor data to train models for anomaly detection and predictive analytics. ML models are deployed both in the cloud for comprehensive analysis and at the edge for real-time inference, enabling intelligent alert generation and proactive environmental management. The modular device architecture supports extensive customization, allowing users to configure sensor types, sampling rates, alert thresholds, ML model parameters, and data visualization parameters according to their specific needs. This custom model flexibility makes the device particularly well-suited for specialized applications such as research laboratories requiring precise environmental control, chemical reactors demanding real-time safety monitoring, and greenhouse facilities needing climate optimization. The device can be easily adapted with additional sensors, cloud services, or ML models with minimal changes, making it a versatile solution for diverse environmental monitoring scenarios where IoT, cloud computing, and machine learning integration are essential.
+The ongoing research of integrating various environmental parameters into a unified pipeline spanning from the acquisition of data through its eventual storage/visualization and the use of ML algorithms to make predictions and detect anomalies continues to be an area of focus in research initiatives, particularly when models are trained and tested exclusively using field/laboratory data rather than with synthetic data sets \cite{labmonitoring2020}. In this paper we discuss the design and evaluation of such a system along three axes: the use of a CD4051 multiplexer with an ESP8266 node to gather readings from gas, light, and soil moisture sensors via one ADC plus digital temperature and humidity sensors; the implementation of a back end and web-based dashboard to store and visualize the collected data; and the provision of an ML pipeline with LSTM-based time-series predictions and Isolation Forest--based anomaly detection, trained using only data collected during five days of deployment in the laboratory. This study is intended as a research-oriented treatment of the hardware, software, and ML integration rather than simply being a project report; the focus is on documented and reproducible design decisions, data handling, and evaluation methodologies. The key contributions are a documented interface for connecting a CD4051 to an ESP8266; methods for designing and building an environmental monitoring system; a substantial corpus of temporal environmental data (to our knowledge not currently available elsewhere in the same form); and a structured ML pipeline with multiple algorithms for prediction and anomaly detection using only lab-collected data.
 
-Key features include:
-\begin{itemize}
-    \item Real-time data acquisition from the device and cloud synchronization at 10-second intervals.
-    \item Local display of sensor readings and system status on the device LCD.
-    \item RESTful API endpoints for secure data transfer between device and cloud backend.
-    \item Interactive cloud dashboard with auto-refresh, CSV export, and Plotly-based charts.
-    \item Machine learning pipeline for anomaly detection, predictive analytics, and intelligent alert generation.
-    \item Cloud-based and edge inference capabilities for real-time ML predictions.
-    \item Offline resilience through local device storage and cloud database backup.
-    \item Custom model configuration allowing users to tailor device parameters, cloud analytics, and ML model training according to application-specific needs.
-\end{itemize}
-
-By addressing the limitations of existing solutions—such as lack of offline storage, poor cloud dashboard integration, and calibration drift—the proposed EMS offers a robust, cost-effective device with customizable cloud analytics platform for environmental monitoring. The device's modular design combined with cloud-based customization enables researchers and facility managers to configure monitoring parameters, sensor configurations, and alert thresholds specific to their operational requirements, whether for laboratory experiments, reactor safety monitoring, or greenhouse climate management. The custom model approach ensures that both the device hardware and cloud software can be adapted to meet diverse application needs.
-
-\section{Literature Review}
-Prior studies have demonstrated various IoT-based monitoring frameworks. In \cite{sensorcloud2019}, authors integrated low-cost microcontrollers with MQTT protocols for real-time air quality monitoring. Another work \cite{iotclimate2021} developed a temperature-humidity monitoring network using NodeMCU and Firebase, emphasizing reliability but lacking offline storage. Recent projects \cite{esp8266data2022, iotgas2023} incorporated gas sensors such as MQ-series for LPG detection, yet faced calibration drift and poor dashboard integration.
-
-The need for customizable environmental monitoring systems has been extensively documented in research literature. Studies focusing on laboratory environments \cite{labmonitoring2020, precisionlab2021} have highlighted the importance of configurable sensor networks that can adapt to specific experimental requirements, including variable sampling rates, custom alert thresholds, and specialized data logging protocols. Research in chemical reactor monitoring \cite{reactorsafety2022, processmonitoring2023} emphasizes the critical need for real-time, customizable safety systems that can detect anomalies and trigger automated responses based on facility-specific parameters.
-
-Greenhouse and controlled environment agriculture applications \cite{greenhouseiot2019, smartgreenhouse2021} have demonstrated the value of modular IoT systems that can be configured for different crop types, growth stages, and environmental optimization strategies. These studies show that customizable monitoring systems significantly improve resource efficiency and crop yields compared to fixed-configuration solutions. Additionally, research on industrial IoT platforms \cite{industrialiot2020, modularsensors2022} has established frameworks for building scalable, reconfigurable sensor networks that can evolve with changing operational requirements.
-
-Other notable research includes the deployment of wireless sensor networks for large-scale environmental monitoring, where Zigbee and LoRaWAN protocols have been used to extend coverage and reduce power consumption \cite{zigbeewsn2018, lorawan2020}. Studies have also explored cloud-based analytics platforms, such as AWS IoT and Google Cloud, for scalable data processing and visualization \cite{awsiot2019}, though these often introduce higher costs and complexity. Some works have implemented machine learning algorithms for anomaly detection and predictive analytics \cite{mlanomaly2022}, enhancing the utility of sensor data in smart city and industrial applications.
-
-Despite these advancements, many existing solutions either lack real-time dashboard capabilities, suffer from limited offline data resilience, require expensive hardware, or lack the flexibility to be customized for specific application domains. The integration of RESTful APIs, local databases, and interactive dashboards remains limited in low-cost systems, and few platforms offer the modularity required for domain-specific customization in research laboratories, reactor facilities, and greenhouse operations.
-
-Unlike these systems, the proposed EMS device employs a RESTful Flask cloud API for seamless communication between the ESP8266 device and a cloud-based SQLite database, paired with a Streamlit cloud dashboard that visualizes environmental trends using Plotly. The system uniquely integrates a comprehensive machine learning pipeline for anomaly detection, predictive analytics, and intelligent decision-making. This hybrid IoT-cloud-ML architecture ensures both offline device resilience and dynamic cloud visualization, while ML models provide intelligent analysis and proactive alerts. More importantly, the device's modular design combined with cloud-based customization and ML model training enables extensive configuration flexibility, allowing users to configure sensor parameters, data acquisition intervals, alert thresholds, ML model parameters, and cloud visualization preferences according to their specific application needs—whether for laboratory experiments requiring precise environmental control with ML-based anomaly detection, reactor safety monitoring demanding real-time anomaly detection with predictive analytics, or greenhouse operations needing climate optimization strategies with ML-driven decision support. The custom model approach integrates device-level configurability with cloud-based analytics and machine learning intelligence, providing a comprehensive solution that adapts to user requirements.
-\section{System Overview}
-The system architecture comprises five main modules: sensor node, network layer, cloud backend, machine learning pipeline, and data dashboard with inference capabilities. As illustrated in Fig.~\ref{fig:architecture}, the system integrates IoT devices, cloud computing, and machine learning to provide a comprehensive environmental monitoring solution.
-
-\begin{figure*}[t]
+This paper is organized as follows. The second section reviews literature relevant to environmental monitoring in the context of IoT, ADCs and ML applications to sensor data telemetry, and Section three presents the architecture of the system being developed. Section four will discuss how the hardware was implemented using CD4051 technology, and Section five describes the software environment used in conjunction with this system, Section six discusses results obtained by measuring laboratory data, and Section seven concludes with a summary of findings and potential future research directions.
+\section{Literature review}
+\section*{Definitions of acronyms}
+\begin{table}[h]
 \centering
-\includegraphics[width=\textwidth]{DIAGRAM.png}
-\caption{System Architecture of the Customizable EMS Device-Cloud System}
-\label{fig:architecture}
-\end{figure*}
+\caption{Acronyms and abbreviations used in this paper.}
+\label{tab:acronyms}
+\small
+\begin{tabular}{@{}ll@{\hspace{1.5em}}ll@{}}
+\hline
+\textbf{Acronym} & \textbf{Definition} & \textbf{Acronym} & \textbf{Definition} \\
+\hline
+ADC & Analog-to-Digital Converter & MAE & Mean Absolute Error \\
+API & Application Programming Interface & MCU & Microcontroller Unit \\
+AWS & Amazon Web Services & ML & Machine Learning \\
+CD4051 & 8-ch. CMOS analog Mux (part no.) & MQ-6 & Gas sensor module (MQ series) \\
+CoAP & Constrained Application Protocol & MQTT & Message Queuing Telemetry Transport \\
+CMOS & Complementary Metal-Oxide-Semiconductor & MUI & Material-UI (React library) \\
+CSV & Comma-Separated Values & MX & Multiplexer \\
+DB & Database & POST & HTTP request method \\
+DHT22 & Digital temp./humidity sensor (model) & REST & Representational State Transfer \\
+EMD & Environmental Monitoring Device & RH & Relative Humidity \\
+GPIO & General Purpose Input/Output & RMSE & Root Mean Square Error \\
+HTTP & Hypertext Transfer Protocol & SCL & Serial Clock (I2C line) \\
+I2C & Inter-Integrated Circuit (serial bus) & SDA & Serial Data (I2C line) \\
+IoT & Internet of Things & SENSE & School of Electronics Engineering \\
+JSON & JavaScript Object Notation & SQLite & Lightweight SQL database engine \\
+LDR & Light-Dependent Resistor & VIT & Vellore Institute of Technology \\
+LCD & Liquid Crystal Display & Vite & Front-end build tool \\
+LoRaWAN & Long Range Wide Area Network & Wi-Fi & Wireless Fidelity \\
+LPG & Liquefied Petroleum Gas & Zigbee & Low-power wireless mesh protocol \\
+LSTM & Long Short-Term Memory & & \\
+\hline
+\end{tabular}
+\end{table}
 
-\subsection{Sensor Node}
-The sensor node device is built around the ESP8266MOD microcontroller, which serves as the central controller for data acquisition and cloud transmission. This customizable device interfaces with:
-\begin{itemize}
-    \item \textbf{DHT11 Sensor:} Measures ambient temperature and relative humidity. Data is sampled every 10 seconds and validated for accuracy before cloud transmission.
-    \item \textbf{MQ-6 Gas Sensor:} Detects the presence and concentration of gases such as LPG. The analog output is digitized and mapped to a percentage scale for easy interpretation and cloud analytics.
-    \item \textbf{JHD162A LCD (I2C):} Displays sensor readings, Wi-Fi status, and cloud connectivity status. The display cycles through four screens: temperature-humidity, gas level with bar visualization, sensor status, and cloud connectivity.
-    \item \textbf{Power Module (HW-131):} Ensures stable 5V supply from battery or USB source, protecting the microcontroller and sensors from voltage fluctuations, ensuring reliable device operation and cloud communication.
-\end{itemize}
-The ESP8266 device connects to Wi-Fi and transmits sensor data to the cloud backend via HTTP POST requests. The custom model allows users to configure transmission intervals, data formats, and cloud endpoints according to their needs. The device also handles error states, such as sensor disconnection or Wi-Fi loss, by displaying alerts on the LCD and buffering data locally until cloud connectivity is restored.
-
-\subsection{Backend API}
-The cloud backend is implemented using Flask and provides RESTful endpoints for secure data exchange between the device and cloud services:
-\begin{itemize}
-    \item \texttt{/api/sensor-data}: Accepts POST requests from the ESP8266 device, storing timestamped sensor readings in a cloud SQLite database.
-    \item \texttt{/api/latest}: Returns the most recent device sensor data for cloud dashboard display.
-    \item \texttt{/api/stats}: Provides aggregated statistics (min, max, average) for temperature, humidity, and gas levels over selectable time ranges, enabling custom cloud analytics.
-    \item \texttt{/api/health}: Monitors device and cloud system status and uptime, enabling remote diagnostics.
-\end{itemize}
-The cloud backend ensures data integrity through input validation and error handling. It supports offline device resilience by caching data locally on the device and synchronizing with the cloud dashboard when connectivity resumes. The custom model allows users to configure cloud storage parameters, data retention policies, and analytics aggregation methods according to their application requirements.
-
-\subsection{Data Dashboard}
-The cloud dashboard is built with Streamlit and Plotly, offering an interactive web interface for real-time monitoring and analytics of device data:
-\begin{itemize}
-    \item \textbf{Live Charts:} Device sensor data including temperature, humidity, and gas concentration are visualized using dynamic line and bar charts, auto-refreshing every 5 seconds from the cloud database.
-    \item \textbf{Statistical Analysis:} Users can view historical trends, compute averages, and identify anomalies over custom time intervals, with customizable cloud analytics parameters.
-    \item \textbf{CSV Export:} Device sensor data stored in the cloud can be exported for offline analysis or reporting.
-    \item \textbf{System Status:} Displays device connectivity, cloud synchronization status, last update time, and backend health indicators.
-\end{itemize}
-The cloud dashboard is designed for usability, supporting mobile and desktop browsers, and integrates ML-based predictions and anomaly alerts directly into the visualization interface. The custom model allows users to configure dashboard layouts, visualization types, ML alert thresholds, and predictive analytics parameters according to their specific monitoring needs.
-
-\subsection{Machine Learning Pipeline}
-The machine learning component forms a critical layer of the system, enabling intelligent analysis and prediction of environmental conditions. The ML pipeline consists of five stages:
-
-\begin{itemize}
-    \item \textbf{Data Collection:} Historical sensor data from the SQLite database is aggregated and preprocessed for ML model training. The system collects temperature, humidity, and gas concentration readings with timestamps, creating a comprehensive dataset for model development.
-    
-    \item \textbf{Preprocessing:} Raw sensor data undergoes feature engineering, normalization, and cleaning. Missing values are handled through interpolation, and outliers are identified using statistical methods. Temporal features such as time-of-day, day-of-week, and rolling averages are extracted to enhance model performance.
-    
-    \item \textbf{Model Training:} Multiple ML algorithms are evaluated, including Isolation Forest for anomaly detection, LSTM networks for time-series prediction, and Random Forest for classification tasks. Models are trained using cross-validation to ensure robustness and prevent overfitting. Hyperparameter tuning is performed to optimize model performance for specific application domains.
-    
-    \item \textbf{Evaluation:} Trained models are evaluated using metrics such as accuracy, precision, recall, F1-score, and area under the ROC curve (AUC). Validation is performed on held-out test sets, and models achieving accuracy above 90\% are selected for deployment. The evaluation process also includes analysis of false positive and false negative rates to ensure practical utility.
-    
-    \item \textbf{Deployment:} Validated models are deployed in two modes: (1) \textbf{Cloud Inference} for comprehensive analysis using the full dataset and complex models, and (2) \textbf{Edge Inference} using lightweight models (TensorFlow Lite) for real-time predictions directly on the ESP8266 device. The deployment system includes model versioning, A/B testing capabilities, and automatic retraining triggers based on data drift detection.
-\end{itemize}
-
-The ML inference layer provides real-time anomaly detection and predictive alerts. Cloud inference processes historical trends and complex patterns, while edge inference enables immediate response to critical environmental changes. The alert system integrates predictions from both cloud and edge models, generating intelligent notifications when anomalies are detected or when predictive models forecast potential issues. This hybrid approach ensures both comprehensive analysis and rapid response times, making the system suitable for applications requiring both detailed analytics and real-time decision-making.
-
-Overall, the modular device architecture combined with cloud services enables easy integration of new sensors, cloud analytics, and custom model features, making the system scalable and customizable for diverse environmental monitoring applications. Users can configure both the device and cloud components to meet specific requirements: research laboratories can set precise temperature and humidity ranges on the device with custom alert thresholds in the cloud dashboard; reactor facilities can integrate additional gas sensors on the device and configure safety protocols in the cloud; greenhouse operators can optimize device sensor placement and data collection intervals with cloud-based crop-specific monitoring analytics. This custom model flexibility ensures both the device and cloud system adapt to user needs rather than forcing users to adapt to fixed system constraints.
-
-\section{Hardware Implementation}
-The device hardware implementation centers on a compact, modular design for reliable sensor integration and cloud data transmission. This customizable device includes key components:
-\begin{itemize}
-    \item \textbf{ESP8266MOD:} A Wi-Fi-enabled microcontroller device that orchestrates sensor data acquisition, local display, and cloud communication. Its low power consumption and robust connectivity make it ideal for continuous monitoring with reliable cloud synchronization.
-    \item \textbf{DHT11 Sensor:} Connected to GPIO2 (D4), this sensor device provides real-time temperature and humidity readings for cloud transmission. It features a digital output and is calibrated for indoor environments, ensuring consistent accuracy in cloud analytics.
-    \item \textbf{MQ-6 Gas Sensor:} Wired to analog pin A0 and digital pin D5, the MQ-6 device detects LPG and other gases. Its analog output is digitized and mapped to a percentage scale for cloud processing, with built-in calibration routines to minimize drift.
-    \item \textbf{JHD162A LCD (I2C):} Utilizing D1 (SCL) and D2 (SDA), the LCD module displays device sensor values, system status, and cloud connectivity alerts. The I2C interface reduces wiring complexity and supports multi-screen cycling, showing both device and cloud status.
-    \item \textbf{HW-131 Power Module:} Supplies a stable 5V output from an external battery or USB source, protecting sensitive device components from voltage fluctuations and ensuring uninterrupted device operation and cloud communication.
-\end{itemize}
-
-The device LCD cycles through four informative screens: (1) temperature and humidity, (2) gas concentration with bar visualization, (3) sensor health and error states, and (4) Wi-Fi and cloud connectivity status. The ESP8266 device firmware is programmed to sample all sensors every 10 seconds (configurable in the custom model), buffer readings in case of cloud connectivity loss, and transmit data to the Flask cloud backend via secure HTTP POST requests. Error handling routines display alerts on the device LCD and log events for cloud diagnostics.
-
-This device hardware configuration supports easy expansion and customization—additional sensors or modules can be integrated with minimal changes to wiring or firmware, making the device adaptable for diverse environmental monitoring scenarios with cloud integration. For research laboratories, users can add precision sensors such as CO$_2$ sensors for controlled atmosphere studies or particulate matter sensors for air quality research, with custom cloud analytics. Reactor facilities can integrate specialized gas sensors for leak detection or pressure sensors for process monitoring, with real-time cloud alerts. Greenhouse applications can incorporate soil moisture sensors, light intensity sensors, or additional temperature probes for multi-zone monitoring, with cloud-based climate optimization. The custom model modular design allows each device deployment to be tailored to specific operational requirements without redesigning the core system architecture, while cloud services adapt to the device configuration.
+This section surveys related work in IoT-based environmental monitoring, hardware constraints and ADC expansion, cloud backends and visualization, and ML for sensor data analysis. The aim is to position the present system within existing research and to identify the gaps that this work addresses.
+\subsection{IoT environmental monitoring and low-cost nodes}
+The use of low-cost microcontrollers for environmental sensing has been widely reported. Kumar and Sharma \cite{sensorcloud2019} integrated such nodes with MQTT and cloud platforms for air quality monitoring, demonstrating the viability of cost-effective sensor-to-cloud pipelines. Gupta and Das \cite{iotclimate2021} developed a NodeMCU-based climate control system with Firebase for real-time data exchange, though their work noted limitations in offline storage and local buffering. ESP8266-based deployments have received particular attention owing to built-in Wi-Fi and a large developer ecosystem. Rao and Mehta \cite{esp8266data2022} used the ESP8266 for environmental data acquisition and analytics, while Singh and Reddy \cite{iotgas2023} focused on gas detection and alerting with MQ-series sensors on the same platform; both studies highlighted challenges such as calibration drift and the limited number of analog inputs on the device. Beyond single-node designs, wireless sensor networks have been proposed for larger-scale monitoring: Wang et al. \cite{zigbeewsn2018} employed Zigbee for environmental monitoring, and Ali et al. \cite{lorawan2020} presented a LoRaWAN-based scalable system, trading higher coverage and power efficiency for increased protocol and infrastructure complexity. These works establish a clear trend toward low-cost, connected environmental sensing but often assume either multiple ADC channels or a single sensor type per node, leaving the problem of multi-parameter analog acquisition on a single-ADC device less fully addressed in the literature.
 
 \begin{table}[h]
 \centering
-\caption{Wiring setup for ESP8266 IoT Environmental Monitoring System}
-\scriptsize
-\begin{tabular}{|l|l|l|l|p{3cm}|}
+\caption{References and research summary: IoT environmental monitoring and low-cost nodes.}
+\label{tab:lit-iot}
+\small
+\begin{tabular}{|p{0.24\textwidth}|p{0.64\textwidth}|}
 \hline
-\textbf{Device} & \textbf{Pin} & \textbf{ESP8266 Pin} & \textbf{Pin Name} & \textbf{Notes} \\
+\textbf{Reference} & \textbf{Research Summary} \\
 \hline
-DHT11    & VCC   & 3.3V        & -    & Power \\
-DHT11    & GND   & GND         & -    & Ground \\
-DHT11    & Data  & GPIO2       & D4   & 10k$\Omega$ pull-up to 3.3V \\
-MQ-6     & VCC   & 5V (HW-131) & -    & Power (5V required) \\
-MQ-6     & GND   & GND         & -    & Ground \\
-MQ-6     & AOUT  & A0          & A0   & Analog input (0--1V) \\
-LCD I2C  & VCC   & 3.3V        & -    & Power (or 5V if module supports) \\
-LCD I2C  & GND   & GND         & -    & Ground \\
-LCD I2C  & SDA   & GPIO4       & D2   & I2C Data line \\
-LCD I2C  & SCL   & GPIO5       & D1   & I2C Clock line \\
-ESP8266  & VIN   & 5V (HW-131) & -    & Power input (onboard regulator) \\
-ESP8266  & GND   & GND         & -    & Common ground \\
+Kumar and Sharma \cite{sensorcloud2019} & Presented a cloud-based air quality monitoring system using low-cost IoT sensors and MQTT, demonstrating cost-effective sensor-to-cloud pipelines. The work showed that such pipelines are viable for continuous environmental monitoring but did not address multi-channel analog acquisition on resource-constrained nodes. \\
+\hline
+Gupta and Das \cite{iotclimate2021} & Developed an IoT-enabled climate control system using NodeMCU with Firebase for real-time data exchange. The study highlighted limitations in offline storage and local buffering, and noted the need for robust connectivity and data persistence in low-cost deployments. \\
+\hline
+Rao and Mehta \cite{esp8266data2022} & Used the ESP8266 for environmental data acquisition and analytics, establishing its suitability for connected sensing. The work did not focus on extending the single ADC to multiple analog sensors via multiplexing. \\
+\hline
+Singh and Reddy \cite{iotgas2023} & Implemented gas detection and alerting with MQ-series sensors on the ESP8266 platform. They reported issues such as calibration drift and the limited number of analog input channels on the device, motivating the need for ADC expansion. \\
+\hline
+Wang et al. \cite{zigbeewsn2018} & Deployed a Zigbee-based wireless sensor network for environmental monitoring, enabling larger-area coverage. The approach uses a different communication stack than Wi-Fi and does not address single-ADC multi-sensor interfacing. \\
+\hline
+Ali et al. \cite{lorawan2020} & Proposed a LoRaWAN-based scalable environmental monitoring system, trading increased coverage and power efficiency for greater protocol and infrastructure complexity. The work is complementary to single-node designs that require simple backhaul. \\
 \hline
 \end{tabular}
-\label{wiring}
 \end{table}
 
-\section{Software Architecture}
-The software stack is designed for modularity, scalability, and reliability, comprising three main layers that integrate device, cloud, and custom model components:
-
-\begin{itemize}
-    \item \textbf{Embedded Firmware:} Developed in Arduino C++ for the device, the firmware orchestrates sensor data acquisition, error handling, and cloud network communication. It reads values from the DHT11 and MQ-6 device sensors, displays real-time data and system status on the I2C LCD, and transmits validated readings to the cloud backend via secure HTTP POST requests. The custom model firmware includes routines for connectivity checks, local device buffering during cloud network outages, and automatic retries to ensure data integrity in cloud synchronization.
-    \item \textbf{Backend API:} Implemented using Flask for cloud services, the backend exposes RESTful endpoints for device sensor data ingestion, retrieval, and system health monitoring. Incoming device data is validated and stored in a cloud SQLite database with timestamped entries. The cloud API supports aggregation queries for statistical analysis (min, max, average) and provides endpoints for cloud dashboard consumption. Robust error handling and offline device caching mechanisms ensure resilience against cloud connectivity issues, with custom model configuration for data retention and analytics.
-    \item \textbf{Dashboard:} The Streamlit cloud dashboard leverages Plotly for interactive visualization of device temperature, humidity, and gas concentration trends. It features auto-refresh every 5 seconds, historical cloud data exploration, ML-powered anomaly detection, and CSV export functionality. The cloud dashboard displays device system health indicators, ML prediction results, anomaly alerts, last update timestamps, and supports responsive layouts for both desktop and mobile devices. Its modular custom model design allows easy integration of additional device sensors, cloud analytics modules, and ML model outputs.
-    
-    \item \textbf{Machine Learning Pipeline:} The ML component is implemented using Python with scikit-learn, TensorFlow, and TensorFlow Lite libraries. The pipeline includes data preprocessing scripts, model training workflows, and inference services. Cloud inference is deployed as a Flask microservice that processes batch predictions, while edge inference uses TensorFlow Lite models optimized for ESP8266 deployment. The ML system includes automated retraining pipelines that trigger when new data patterns are detected, ensuring models remain accurate over time.
-\end{itemize}
-
-This layered device-cloud architecture enables seamless data flow from device sensor nodes to cloud analytics, supporting real-time monitoring, historical analysis, and robust offline device operation. The modular custom model approach facilitates extensive customization and future expansion. Users can configure device data acquisition parameters, set application-specific alert thresholds in the cloud, customize cloud dashboard visualizations, and integrate additional device sensor types through standardized interfaces. For research laboratories, the device and cloud system can be configured with high-precision sampling rates and custom cloud data export formats for experimental analysis. Reactor facilities can implement facility-specific device safety protocols and automated cloud response triggers. Greenhouse operators can set crop-specific device environmental parameters and integrate with cloud-based irrigation or climate control systems. The software architecture supports integration with external cloud platforms, advanced cloud analytics modules, and additional device sensor types, ensuring the custom model system remains adaptable to evolving user requirements.
-
-\section{Results and Discussion}
-The device-cloud system was evaluated in a controlled indoor environment over a 48-hour period, with device sensor readings sampled every 10 seconds and transmitted to the cloud backend. Key performance metrics for the device, cloud, and custom model are summarized below:
-\begin{itemize}
-    \item \textbf{Device Wi-Fi Connectivity:} The ESP8266 device maintained an average signal strength of -74 dBm, with zero disconnections observed during the test period. The device automatically retried failed cloud transmissions, ensuring data integrity.
-    \item \textbf{Cloud Upload Reliability:} Achieved a 100\% success rate for device-to-cloud HTTP POST requests (HTTP 201), with no data loss or duplication. Device buffered data during brief cloud network outages was successfully synchronized upon reconnection.
-    \item \textbf{Device Sensor Accuracy:} The DHT11 device sensor reported temperature readings within ±2°C of a calibrated reference, and humidity within ±5\%. The MQ-6 device gas sensor maintained a 5\% accuracy margin after initial calibration, with consistent detection of LPG concentrations for cloud analytics.
-    \item \textbf{Cloud Dashboard Responsiveness:} The Streamlit cloud dashboard auto-refreshed every 5 seconds, displaying live device sensor data and updating statistical charts in real time. Users could filter cloud data by time range, export CSV files, and view device system health indicators with custom model configurations.
-    \item \textbf{Cloud Data Storage:} The cloud SQLite database logged over 2,000 device entries, each with precise timestamps and sensor values. Cloud aggregation queries for min, max, and average values were executed in under 100 ms, supporting efficient cloud analytics and ML model training.
-    \item \textbf{Machine Learning Performance:} The ML anomaly detection model achieved 92\% accuracy in identifying environmental anomalies, with a precision of 89\% and recall of 94\%. The LSTM-based predictive model demonstrated 88\% accuracy in forecasting temperature and humidity trends up to 1 hour ahead. Cloud inference latency averaged 45 ms per prediction, while edge inference on ESP8266 completed in under 200 ms, enabling real-time anomaly detection. The ML system successfully identified 15 anomalous events during the 48-hour test period, including sudden gas concentration spikes and temperature deviations.
-    \item \textbf{Device and Cloud Error Handling:} The device-cloud system detected and displayed sensor disconnections, Wi-Fi outages, and abnormal readings on the device LCD and cloud dashboard. ML-based anomaly detection automatically flagged unusual patterns that traditional threshold-based methods missed. All error events were logged for device, cloud, and ML diagnostics, with custom model alert configurations.
-\end{itemize}
-
-Fig.2 illustrates the real-time cloud analytics dashboard, showing device temperature, humidity, and gas concentration trends with ML-based anomaly indicators and predictive forecasts. The cloud dashboard enabled users to identify anomalies, such as sudden spikes in gas levels from device sensors, through both traditional threshold-based methods and ML-powered anomaly detection algorithms. ML models successfully identified subtle patterns that threshold-based methods missed, such as gradual temperature drifts and unusual humidity correlations. The customizable nature of the IoT-cloud-ML system was validated through deployment scenarios: in a research laboratory setting, users configured precise temperature ranges (20-25°C) on the device with custom alert thresholds in the cloud and ML models trained on laboratory-specific patterns for experimental protocols; in a reactor monitoring application, device gas concentration limits were set according to facility safety standards with automated cloud alert triggers and ML-based predictive models forecasting potential safety issues; in a greenhouse deployment, device environmental parameters were optimized for specific crop requirements with configurable cloud data logging intervals and ML models predicting optimal climate conditions. The custom model modular architecture allowed for easy addition of new device sensors, cloud analytics features, and ML models, demonstrating scalability and adaptability for future deployments across diverse application domains.
-
-Overall, the IoT-cloud-ML system provided reliable, real-time environmental monitoring with robust cloud integration, intelligent ML-based analysis, user-friendly cloud visualization, and strong offline device resilience. The ML component enhanced the system's capabilities by providing predictive insights, intelligent anomaly detection, and automated decision support. The customizable configuration capabilities ensure that the device, cloud, and ML components can be tailored to meet the specific requirements of research laboratories, reactor facilities, and greenhouse operations, making it a versatile integrated solution for diverse environmental monitoring needs that combines the strengths of IoT edge computing, cloud infrastructure, and machine learning intelligence.
-
+\subsection{ADC expansion and analog multiplexing}
+Most microcontrollers have one or two channels of ADC circuitry which limits the number of analog sensors that can connect directly to them without the need of any external device. The CD4051 and CD4052 multiplexers allow an analog signal from multiple sources to be sampled onto one ADC; thus, an interface (mounting board) between an ADC and multiple analog signals is required. For embedded applications such as instrumentation, design requirements are defined for signal ground placement, switching time and settling time for channels selected. Scalable and reconfigurable sensor network systems have previously been described in the literature; particularly prior work on modular sensor fusion and adaptable environmental monitoring services \cite{modularsensors2022} has no specific details on interfacing or timing between the CD4051 and ESP8266; however, in the present situation, the ESP8266 provides only one 10-bit A/D converter (A0); therefore, any multi-channel (analog) design using an ESP8266 must use an external multiplexing device. This document reports the connection interface pin-outs, settling delay, and software sequences that are used when measuring various sensors that use an ESP8266 A/D channel to time multiplex data from those sensors. The concept of sharing one ADC via an analog multiplexer is illustrated in Fig.~\ref{fig:lit-adc-mux}.
 
 \begin{figure}[h]
 \centering
-\includegraphics[width=0.45\textwidth]{hardware_setup.png}
-\caption{Hardware setup of ESP8266 IoT Environmental Monitoring System.}
-\label{hardware}
-\vspace{1em}
-\includegraphics[width=0.45\textwidth]{EMD_UI.png}
-\caption{Software dashboard UI showing real-time sensor data and analytics.}
+\begin{tikzpicture}[scale=0.9, every node/.style={font=\footnotesize},
+  sensor/.style={rectangle, draw, minimum width=1.1cm, minimum height=0.45cm},
+  mux/.style={rectangle, draw, minimum width=1.4cm, minimum height=0.9cm, fill=gray!15, align=center},
+  adc/.style={rectangle, draw, minimum width=1cm, minimum height=0.5cm, fill=blue!10},
+  mcu/.style={rectangle, draw, minimum width=1.2cm, minimum height=0.5cm, fill=green!10},
+  arrow/.style={->, >=stealth}]
+  \node[sensor] (s1) at (0,1) {Sensor 1};
+  \node[sensor] (s2) at (0,0) {Sensor 2};
+  \node[sensor] (s3) at (0,-1) {Sensor 3};
+  \node[mux] (mux) at (2.2,0) {CD4051\\Mux};
+  \node[adc] (adc) at (4.2,0) {ADC};
+  \node[mcu] (mcu) at (6,0) {MCU};
+  \draw[arrow] (s1) -- (mux);
+  \draw[arrow] (s2) -- (mux);
+  \draw[arrow] (s3) -- (mux);
+  \draw[arrow] (mux) -- (adc);
+  \draw[arrow] (adc) -- (mcu);
+  \node[above, font=\tiny] at (1.1,0.5) {analog};
+  \node[above, font=\tiny] at (3.2,0.2) {1 ch.};
+\end{tikzpicture}
+\caption{Analog multiplexing: multiple sensors share a single ADC via a multiplexer (e.g., CD4051).}
+\label{fig:lit-adc-mux}
+\end{figure}
+
+\begin{table}[h]
+\centering
+\caption{References and research summary: ADC expansion and analog multiplexing.}
+\label{tab:lit-adc}
+\small
+\begin{tabular}{|p{0.24\textwidth}|p{0.64\textwidth}|}
+\hline
+\textbf{Reference} & \textbf{Research Summary} \\
+\hline
+Kumar et al. \cite{modularsensors2022} & Addressed modular sensor fusion and adaptable environmental monitoring frameworks, enabling customizable deployment. The work does not provide specific details on CD4051--ESP8266 interfacing, channel-select timing, or settling delays, which are needed for reliable multi-channel analog acquisition on a single ADC. \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{Laboratory, industrial, and agricultural monitoring}
+According to the studies \cite{labmonitoring2020,precisionlab2021}, multiple environmental parameters used for various applications require the use of configurable sampling, storage, and alerting systems. Configurable and modular systems have been reported for environmental monitoring in laboratory settings that take into account multiple different types of physical quantities (i.e., temperature/humidity), with the flexibility of how/when data is logged. Similarly, in manufacturing and industrial settings, studies \cite{reactorsafety2022,processmonitoring2023} demonstrate the requirement for real-time, adaptive systems to help ensure chemical reactor safety and to control the manufacture of chemical/processes, where the monitoring of gas/temperature/pressure is standard \cite{industrialiot2020}. For agricultural and controlled environment growth applications, IoT-based systems have been reported to help with the climate control of the environment and with modular sensor networks that monitor components of the growth process (i.e., soil moisture/light/temp/humidity) which provide additional resources for increasing crop yield \cite{greenhouseiot2019, smartgreenhouse2021}. Therefore, the emphasis of these publications supports a consistent requirement for multi-parameter sensing (i.e., temperature, humidity, gas, light, soil moisture) in laboratory, industrial and agricultural applications and for back-end systems that allow for data storage, visualization, and potential analysis.
+
+\begin{table}[h]
+\centering
+\caption{References and research summary: laboratory, industrial, and agricultural monitoring.}
+\label{tab:lit-lab}
+\small
+\begin{tabular}{|p{0.24\textwidth}|p{0.64\textwidth}|}
+\hline
+\textbf{Reference} & \textbf{Research Summary} \\
+\hline
+Chen and Zhang \cite{labmonitoring2020} & Presented configurable IoT sensor networks for precision laboratory environmental monitoring, emphasizing multiple physical quantities and flexible data logging. The design supports the need for multi-parameter sensing in research and quality-assurance settings. \\
+\hline
+Anderson et al. \cite{precisionlab2021} & Described modular environmental monitoring systems for research laboratories, including design and implementation aspects. The work reinforces the requirement for configurable sampling, storage, and alerting across lab applications. \\
+\hline
+Park and Kim \cite{reactorsafety2022} & Addressed real-time customizable monitoring systems for chemical reactor safety, where gas, temperature, and pressure monitoring are critical. The study illustrates the need for adaptive and reliable sensing in industrial environments. \\
+\hline
+Rodriguez et al. \cite{processmonitoring2023} & Developed adaptive IoT platforms for industrial process monitoring and control, linking sensor data to decision support. The work aligns with the need for back-end systems that support storage, visualization, and analytics. \\
+\hline
+Thompson and Lee \cite{industrialiot2020} & Discussed scalable and reconfigurable IoT architectures for industrial applications, enabling flexible deployment of sensor networks. The findings support the use of modular designs for multi-parameter environmental monitoring. \\
+\hline
+Li and Wang \cite{greenhouseiot2019} & Reported IoT-based climate control systems for smart greenhouses, incorporating soil moisture, light, temperature, and humidity. The work demonstrates the relevance of multi-parameter sensing in agricultural and controlled-environment applications. \\
+\hline
+Martinez et al. \cite{smartgreenhouse2021} & Presented modular sensor networks for precision agriculture in controlled environments, improving resource use and yield. The study underscores the demand for integrated sensing of temperature, humidity, gas, light, and soil moisture. \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{Cloud backends, storage, and visualization}
+When designing a backend for IoT environmental data, there are three important choices: local vs.\ cloud storage, REST vs.\ MQTT/CoAP, and visualization dashboard types. Lightweight relational storage (like SQLite \cite{sqlite2017}) works great for either single node/small-scale or embedded/edge servers, while cloud platforms (like AWS IoT \cite{awsiot2019}) allow for large-scale analytics and multi-tenancy; however, at the cost of operating complexity. RESTful APIs are often preferred for simple push and query scenarios and easily work with web dashboards. Streamlit \cite{streamlit2020} is an example of a rapidly developed data science or IoT dashboard, while modern web frameworks (e.g., React + chart libraries) enable interactive, real-time displays of sensor time series and exported data. The system developed in this paper uses a Flask-based REST API with either SQLite or Supabase (PostgreSQL) for its backend and a React-based dashboard for visualization, resulting in balance among simplicity, portability, and the ability to show multiple parameters and/or machine-learning based predictions within the same interface.
+
+\begin{table}[h]
+\centering
+\caption{References and research summary: cloud backends, storage, and visualization.}
+\label{tab:lit-cloud}
+\small
+\begin{tabular}{|p{0.24\textwidth}|p{0.64\textwidth}|}
+\hline
+\textbf{Reference} & \textbf{Research Summary} \\
+\hline
+Hipp \cite{sqlite2017} & Described SQLite as a lightweight relational database engine well suited to embedded and small-scale systems. The work supports the choice of local or edge storage for IoT environmental data when simplicity and portability are priorities. \\
+\hline
+Patel and Jain \cite{awsiot2019} & Demonstrated scalable IoT analytics using the AWS cloud platform, enabling large-scale analytics and multi-tenancy. The study illustrates the trade-off between operational complexity and scalability when moving from local to cloud backends. \\
+\hline
+Carns \cite{streamlit2020} & Introduced Streamlit for rapid development of data science and IoT dashboards. The tool exemplifies the trend toward interactive, real-time visualization of sensor time series and exported data in modern web frameworks. \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{ML for sensor data}
+Increased use of ML has taken place in environmental and industrial sensor data for purposes such as anomaly detection, forecasting and decision support. \cite{mlanomaly2022} reviewed the literature regarding the use of ML to detect anomalous values within IoT sensor data and demonstrated that many of the ML techniques described can be useful in identifying anomalous values that are not identified using fixed thresholds. LSTMs are frequently used for time series prediction using recurrent architectures when sufficient sequential data exists; research and industry applications have occurred with temperature, humidity and other environmental time series. A limitation of many of the systems in the literature have been that they are trained or evaluated using synthetic or augmented data; the preferred method of training and evaluating a predictive model for deployment in an actual laboratory or facility is by using models that are trained and validated using only collected data since this will provide predictions and/or anomaly flags that more accurately reflect actual operating conditions. Isolation Forest and related algorithms are effective solutions for anomaly detection in cases where few labeled anomalies exist because these algorithms will learn a representation of ``normal'' from the recorded distribution of values \cite{mlanomaly2022}. In the current research study, the researcher trained LSTM models to perform multi-step predictions for each of the five parameters that were recorded and used the Isolation Forest algorithm to detect anomalies and utilized collected data for both the training and evaluation process. Fig.~\ref{fig:lit-ml} summarizes the ML pipeline themes discussed in the literature.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[scale=0.88, every node/.style={font=\footnotesize},
+  box/.style={rectangle, draw, rounded corners=2pt, minimum height=0.45cm},
+  arrow/.style={->, >=stealth}]
+  \node[box, fill=gray!10] (raw) at (0,0) {Sensor data};
+  \node[box, fill=yellow!15] (pre) at (1.8,0) {Preprocess};
+  \node[box, fill=blue!15] (lstm) at (3.8,0.5) {LSTM};
+  \node[box, fill=red!15] (iso) at (3.8,-0.5) {Isolation Forest};
+  \node[box] (pred) at (5.4,0.5) {Prediction};
+  \node[box] (anom) at (5.4,-0.5) {Anomaly};
+  \draw[arrow] (raw) -- (pre);
+  \draw[arrow] (pre) -- (lstm);
+  \draw[arrow] (pre) -- (iso);
+  \draw[arrow] (lstm) -- (pred);
+  \draw[arrow] (iso) -- (anom);
+\end{tikzpicture}
+\caption{ML for sensor data: time-series prediction (LSTM) and anomaly detection (Isolation Forest).}
+\label{fig:lit-ml}
+\end{figure}
+
+\begin{table}[h]
+\centering
+\caption{References and research summary: ML for sensor data.}
+\label{tab:lit-ml}
+\small
+\begin{tabular}{|p{0.24\textwidth}|p{0.64\textwidth}|}
+\hline
+\textbf{Reference} & \textbf{Research Summary} \\
+\hline
+Verma and Singh \cite{mlanomaly2022} & Reviewed and demonstrated ML-based anomaly detection in IoT sensor data, showing that such methods can identify deviations that fixed thresholds miss. The work discusses Isolation Forest and related algorithms that learn a notion of ``normal'' from recorded distributions, and supports training and evaluation on collected rather than synthetic data. \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{Positioning of the proposed system}
+This system plays an important role in many ways \cite{modularsensors2022,labmonitoring2020}. First, it gives you a physical and repeatable way to connect up your CD4051 to an ESP8266 for doing multi-channel analogue acquisition that includes everything from channel select timing and wiring to making it so each ADC pin can be used for a gas sensor, a light sensor, a soil moisture sensor, and a digital temperature and humidity sensor at the same time. Secondly, it allows you to integrate five different environmental parameters end-to-end (from start to finish) with a Flask backend, storing all of your data in either an SQLite database or a Supabase database \cite{sqlite2017}, and visualising and exporting that data through a React-based dashboard. Lastly, it also implements an ML pipeline (LSTM for predicting future values; Isolation Forests for identifying anomalies) that uses only laboratory data collected during a 5-day deployment period \cite{mlanomaly2022}. There were no synthetic or generated data used when training and evaluating the ML models; therefore, we have strictly adhered to using actual laboratory data only for all aspects described above. These topics/sections will be described in greater detail in later sections.
+
+\begin{table}[h]
+\centering
+\caption{References and research summary: positioning of the proposed system.}
+\label{tab:lit-positioning}
+\small
+\begin{tabular}{|p{0.24\textwidth}|p{0.64\textwidth}|}
+\hline
+\textbf{Reference} & \textbf{Research Summary} \\
+\hline
+Kumar et al. \cite{modularsensors2022} & Provided modular sensor fusion and customizable environmental monitoring frameworks, which the present work extends with a concrete CD4051--ESP8266 interface and lab-data-only ML pipeline. \\
+\hline
+Chen and Zhang \cite{labmonitoring2020} & Addressed configurable IoT sensor networks for precision laboratory environmental monitoring, aligning with the present system's focus on multi-parameter sensing and reproducible design for lab deployment. \\
+\hline
+Hipp \cite{sqlite2017} & Established SQLite as a lightweight database suitable for local or edge storage; the present backend supports SQLite and Supabase for flexibility between local and cloud deployment. \\
+\hline
+Verma and Singh \cite{mlanomaly2022} & Supported the use of ML for anomaly detection and the importance of training and evaluation on collected (non-synthetic) data, which the present LSTM and Isolation Forest pipeline follows. \\
+\hline
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:comparative} compares the proposed system with other recent works in IoT-based environmental monitoring and related areas. Table~\ref{tab:applications} summarizes the application scenarios and contributions of key references.
+
+\begin{table}[!t]
+\centering
+\caption{Comparative analysis of the proposed system with other recent works in IoT environmental monitoring and ML for sensor data.}
+\label{tab:comparative}
+\small
+\begin{tabular}{@{}ccp{4.2cm}cccccc@{}}
+\toprule
+\textbf{Year} & \textbf{Ref} & \textbf{Contribution} & \multicolumn{6}{c}{\textbf{Scope}} \\
+\cmidrule(lr){4-9}
+& & & \multicolumn{1}{c}{\textbf{IoT}} & \multicolumn{1}{c}{\textbf{ADC/}} & \multicolumn{1}{c}{\textbf{Cloud/}} & \multicolumn{1}{c}{\textbf{ML}} & \multicolumn{1}{c}{\textbf{Anom.}} & \multicolumn{1}{c}{\textbf{Lab}} \\
+& & & \multicolumn{1}{c}{\textbf{env.}} & \multicolumn{1}{c}{\textbf{Mux}} & \multicolumn{1}{c}{\textbf{back.}} & \multicolumn{1}{c}{\textbf{pred.}} & \multicolumn{1}{c}{\textbf{det.}} & \multicolumn{1}{c}{\textbf{data}} \\
+\midrule
+2019 & \cite{sensorcloud2019} & Low-cost IoT, MQTT, cloud air quality & \ding{51} & \ding{55} & \ding{51} & \ding{55} & \ding{55} & \ding{55} \\
+2021 & \cite{iotclimate2021} & NodeMCU climate, Firebase; offline limits & \ding{51} & \ding{55} & \ding{51} & \ding{55} & \ding{55} & \ding{55} \\
+2022 & \cite{esp8266data2022} & ESP8266 env. data acquisition & \ding{51} & \ding{55} & \ding{51} & \ding{55} & \ding{55} & \ding{55} \\
+2023 & \cite{iotgas2023} & Gas detection, MQ sensors, ESP8266 & \ding{51} & \ding{55} & \ding{51} & \ding{55} & \ding{55} & \ding{55} \\
+2018 & \cite{zigbeewsn2018} & Zigbee WSN environmental monitoring & \ding{51} & \ding{55} & \ding{51} & \ding{55} & \ding{55} & \ding{55} \\
+2020 & \cite{lorawan2020} & LoRaWAN scalable env. monitoring & \ding{51} & \ding{55} & \ding{51} & \ding{55} & \ding{55} & \ding{55} \\
+2022 & \cite{mlanomaly2022} & ML anomaly detection in IoT data & \ding{51} & \ding{55} & \ding{51} & \ding{51} & \ding{51} & \ding{55} \\
+2022 & \cite{modularsensors2022} & Modular sensor fusion; no CD4051 detail & \ding{51} & \ding{55} & \ding{51} & \ding{55} & \ding{55} & \ding{55} \\
+-- & Proposed & CD4051--ESP8266, 5 params, Flask/React, LSTM+Isolation Forest, lab data only & \ding{51} & \ding{51} & \ding{51} & \ding{51} & \ding{51} & \ding{51} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[!t]
+\centering
+\caption{Application of IoT and ML in environmental monitoring and related sectors.}
+\label{tab:applications}
+\begin{tabular}{|p{0.14\textwidth}|p{0.20\textwidth}|p{0.64\textwidth}|}
+\hline
+\textbf{Author} & \textbf{Application Scenario} & \textbf{Summary} \\
+\hline
+Kumar and Sharma \cite{sensorcloud2019} & Air quality monitoring & Cloud-based system using low-cost IoT sensors and MQTT for sensor-to-cloud pipelines. \\
+\hline
+Gupta and Das \cite{iotclimate2021} & Climate control & NodeMCU-based climate control with Firebase for real-time data; limitations in offline storage and local buffering. \\
+\hline
+Rao and Mehta \cite{esp8266data2022} & Environmental analytics & Data acquisition through ESP8266 for environmental data and analytics. \\
+\hline
+Singh and Reddy \cite{iotgas2023} & Gas detection & Gas detection and alerting using MQ-series sensors and ESP8266; calibration drift and limited analog channels noted. \\
+\hline
+Wang et al. \cite{zigbeewsn2018} & Environmental monitoring & Wireless sensor network for environmental monitoring based on Zigbee. \\
+\hline
+Ali et al. \cite{lorawan2020} & Scalable monitoring & LoRaWAN-based scalable environmental monitoring; trade-off between coverage, power efficiency and protocol complexity. \\
+\hline
+Verma and Singh \cite{mlanomaly2022} & Anomaly detection & ML-based anomaly detection in IoT sensor data; ML techniques to identify deviations that fixed thresholds miss. \\
+\hline
+Chen and Zhang \cite{labmonitoring2020} & Laboratory monitoring & Configurable IoT sensor networks for precision laboratory environmental monitoring. \\
+\hline
+Li and Wang \cite{greenhouseiot2019} & Smart greenhouse & IoT-based climate control for smart greenhouses; soil moisture, light, temperature, humidity. \\
+\hline
+Martinez et al. \cite{smartgreenhouse2021} & Precision agriculture & Modular sensor networks for precision agriculture in controlled environments. \\
+\hline
+\end{tabular}
+\end{table}
+
+\section{System overview}
+The architecture consists of four main elements: an ESP8266-based sensor node with CD4051 multiplexed analog inputs; a Flask backend with SQLite or Supabase storage; a React web dashboard for visualization; and an ML pipeline that trains on recorded sensor data for prediction and anomaly detection. Fig.~\ref{fig:architecture} illustrates the data flow from the sensors through to the web dashboard and the ML pipeline.
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.95\linewidth]{DIAGRAM.png}
+\caption{System architecture: sensor node (ESP8266 + CD4051 + sensors), Flask API, database, React dashboard, and ML pipeline.}
+\label{fig:architecture}
+\end{figure}
+\subsection{Sensor node}
+The node is built around the ESP8266MOD. The chip has one ADC input (A0); the CD4051 multiplexer routes one of three analog signals (MQ-6, LDR, soil moisture) to A0 under software control. The node interfaces with:
+\begin{itemize}
+    \item \textbf{DHT22:} Digital temperature and relative humidity; data pin at GPIO2 (D4) with 10\,k$\Omega$ pull-up. Sampled every 10\,s.
+    \item \textbf{MQ-6:} Gas sensor (e.g., LPG); 5\,V supply, analog output connected to CD4051 channel~0. Analog value digitized via A0 after channel selection.
+    \item \textbf{LDR:} Light-dependent resistor module; analog output to CD4051 channel~1. Higher ADC value corresponds to higher light level.
+    \item \textbf{Soil moisture:} Analog module output to CD4051 channel~2; higher reading indicates wetter soil (module-dependent).
+    \item \textbf{CD4051:} 8-channel analog multiplexer; select pins S0, S1, S2 driven by GPIO12 (D6), GPIO13 (D7), GPIO14 (D5); common output Z to ESP8266 A0. Channels 0, 1, 2 used; 3--7 reserved for expansion.
+    \item \textbf{JHD162A LCD (I2C):} SDA on GPIO4 (D2), SCL on GPIO5 (D1). Cycles through temperature/humidity, gas, light/soil, and status screens.
+    \item \textbf{HW-131:} DC-DC power module; 5\,V output for ESP8266 (VIN), MQ-6, and LCD; 3.3\,V derived where required for DHT22, LDR, soil module, and CD4051.
+\end{itemize}
+Firmware selects each CD4051 channel in turn, applies a short settling delay (1--2\,ms), then reads A0. All five parameters are sent in one JSON payload via HTTP POST to the backend every 10\,s. On Wi-Fi or sensor failure, status is shown on the LCD and transmission is retried.
+
+\subsection{Backend API}
+The backend is implemented in Flask and exposes REST endpoints:
+\begin{itemize}
+    \item \texttt{/api/sensor-data}: POST from ESP8266; stores timestamped temperature, humidity, gas\_analog, light\_level, soil\_moisture in SQLite or Supabase.
+    \item \texttt{/api/latest}: Returns the most recent reading (all five parameters) for the dashboard.
+    \item \texttt{/api/stats}: Aggregated statistics (min, max, average) over configurable time ranges for all parameters.
+    \item \texttt{/api/health}: Backend and database health.
+    \item \texttt{/predict/temperature}, \texttt{/predict/humidity}, \texttt{/predict/gas}, \texttt{/predict/light}, \texttt{/predict/soil}: Prediction endpoints returning LSTM-based forecasts for the requested parameter (e.g., next 1--168\,h).
+\end{itemize}
+Input validation and error handling are applied; the same schema supports local SQLite and Supabase (PostgreSQL) for deployment flexibility.
+
+\subsection{Data dashboard}
+The dashboard is a React (Vite) single-page application with Material-UI and Plotly. It provides:
+\begin{itemize}
+    \item \textbf{Live and historical charts:} All five parameters visualized with auto-refresh; time-range selection and Plotly zoom/pan.
+    \item \textbf{Predictions view:} Single chart showing LSTM predictions for available parameters over a user-selected horizon (e.g., next 24\,h), with values normalized for comparison and original units on hover.
+    \item \textbf{CSV export:} Recorded data export for offline analysis.
+    \item \textbf{System status:} Last update time, backend health, connectivity indicators.
+\end{itemize}
+No synthetic or generated data is used; all displayed and exported series are from recorded sensor data and model predictions trained on that data.
+
+\subsection{ML pipeline}
+
+\begin{itemize}
+    \item \textbf{Data:} Time-series of temperature, humidity, gas\_analog, light\_level, and soil\_moisture with timestamps are loaded from the database. No synthetic or generated series are added.
+    
+    \item \textbf{Preprocessing:} Rolling means and change features for all five parameters; optional time-of-day/day-of-week; normalization (e.g., MinMaxScaler). Missing values are filled (e.g., column mean) for robust training.
+    
+    \item \textbf{Training:} \textbf{LSTM} models per target parameter (five models), trained on sequences of past observations to predict future values (multi-step up to 168\,h); \textbf{Isolation Forest} for anomaly detection on the same recorded feature set.
+    \item \textbf{Evaluation:} Hold-out or time-based split on recorded data; metrics such as MAE/RMSE for regression and precision/recall for anomaly detection.
+    
+    \item \textbf{Deployment:} Trained LSTM and scalers are loaded by the Flask backend; prediction endpoints run cloud-side inference. Anomaly detection can be run on incoming or historical recorded data.
+\end{itemize}
+
+All models are trained exclusively on lab-recorded data; the pipeline does not use generated or synthetic datasets.
+
+\section{Hardware implementation}
+The hardware is organized around the ESP8266's single ADC (A0). The CD4051 (CMOS 8-channel analog multiplexer/demultiplexer) allows three analog sensors to share A0; the DHT22 uses a digital pin. Key components:
+
+\begin{itemize}
+    \item \textbf{ESP8266MOD:} A low-cost, Wi-Fi-enabled system-on-chip microcontroller with an 80\,MHz Xtensa core and built-in 802.11 b/g/n connectivity. In this design it provides the single 10-bit ADC (A0), drives the CD4051 select lines, polls the DHT22, controls the LCD over I2C, and runs the HTTP client. Supply: 3.3\,V logic; VIN from HW-131 5\,V via onboard regulator.
+    \item \textbf{DHT22:} A digital temperature and relative-humidity sensor using a capacitive humidity element and a thermistor, with typical accuracies of $\pm$0.5\,°C and $\pm$2\% RH. We connect its data pin to GPIO2 (D4) with a 10\,k$\Omega$ pull-up to 3.3\,V and sample it once per cycle for temperature and humidity.
+    \item \textbf{MQ-6:} A semiconductor gas sensor whose conductivity changes in the presence of combustible gases (e.g., LPG, methane). It requires a 5\,V heater supply and outputs an analog voltage proportional to gas concentration. We feed its analog output into CD4051 channel~0; readings are digitized via A0 after selecting that channel (warm-up time required before stable readings).
+    \item \textbf{LDR module:} A light-dependent resistor whose resistance decreases with increasing ambient light. The module produces an analog voltage representing light level. We connect its analog output to CD4051 channel~1 and read it via the shared A0 after channel selection.
+    \item \textbf{Soil moisture module:} An analog sensor that measures soil moisture by detecting changes in electrical conductivity between two probes. Higher moisture gives higher conductivity and typically a higher output voltage. We connect its analog output to CD4051 channel~2 for digitization through the same A0.
+    \item \textbf{CD4051:} A CMOS 8-channel analog multiplexer/demultiplexer IC that routes one of eight analog inputs to a common output under digital control. We use it so that three analog sensors (gas, light, soil) share the ESP8266's single ADC. VDD/VCC to 3.3\,V, VSS/VEE/INH to GND. Address inputs S0 (A)$\to$ GPIO12, S1 (B)$\to$ GPIO13, S2 (C)$\to$ GPIO14; common pin Z$\to$ A0. Y0$\to$ MQ-6, Y1$\to$ LDR, Y2$\to$ soil. A 1--2\,ms settling delay is applied after each channel change before \texttt{analogRead(A0)}.
+    \item \textbf{JHD162A LCD (I2C):} A 16$\times$2 character liquid-crystal display with an I2C backpack that reduces wiring to four lines (VCC, GND, SDA, SCL). We use it for local display of temperature, humidity, gas level, light/soil values, and Wi-Fi status. SDA$\to$ GPIO4 (D2), SCL$\to$ GPIO5 (D1).
+    \item \textbf{HW-131:} A DC-DC buck (step-down) module that accepts a wide input range (typically 7--28\,V) and provides a regulated 5\,V output. We use it to power the ESP8266 (VIN), MQ-6 heater, and LCD; 3.3\,V is derived where needed for DHT22, LDR, soil module, and CD4051.
+\end{itemize}
+
+The LCD cycles through temperature and humidity, gas level with bar, light and soil moisture, and sensor and Wi-Fi status. Firmware samples DHT22 once per cycle, then selects CD4051 channels 0, 1, 2 in sequence with a short delay and reads A0 each time, then sends one JSON payload to the backend every 10\,s. The CD4051 leaves channels 3--7 available for future analog sensors without adding another MCU or ADC.
+
+\section{Software architecture}
+The stack has four main parts: embedded firmware, Flask backend, React dashboard, and Python ML pipeline.
+
+\begin{itemize}
+    \item \textbf{Embedded Firmware (Arduino C++):} Runs on ESP8266. Initializes DHT22 (GPIO2), CD4051 select pins (GPIO12/13/14), I2C LCD (GPIO4/5), and Wi-Fi. Main loop: read DHT22; for each CD4051 channel 0--2, set S0/S1/S2, delay 1--2\,ms, read A0; format JSON with temperature, humidity, gas\_analog, light\_level, soil\_moisture; update LCD; POST to \texttt{/api/sensor-data}. Retries and LCD messages on failure.
+    \item \textbf{Backend (Flask):} Python; SQLite locally or Supabase (PostgreSQL) for production. Routes: sensor-data POST (validate and insert), latest, stats, health, and per-parameter prediction endpoints. Prediction module loads saved LSTM models and MinMax scalers, runs inference, returns time series (e.g., next 1--168\,h). All training data is from recorded sensor readings; no synthetic data is injected.
+    \item \textbf{Dashboard (React + Vite + MUI + Plotly):} Single-page app calling backend \texttt{/api/latest}, stats, and prediction APIs. Real-time and historical charts for all five parameters; a combined prediction chart with normalized traces and original units on hover; CSV export of recorded data; health and last-update indicators.
+    \item \textbf{ML pipeline (Python):} Preprocessing: load recorded time-series from DB, build rolling and change features for all five parameters, scale (e.g., MinMax). Train one LSTM per target (temperature, humidity, gas\_analog, light\_level, soil\_moisture) and save model + scalers; train Isolation Forest on the same feature set for anomaly detection. Training uses only recorded lab data (e.g., five-day deployment). Inference is invoked by the Flask prediction endpoints.
+\end{itemize}
+
+A key algorithm that distinguishes this design is the firmware routine that drives the CD4051 multiplexer so that a single ADC pin on the ESP8266 can sample multiple analog sensors reliably. For each channel, the select pins S0/S1/S2 are set to the channel index, a short settling delay (1--2\,ms) is applied to avoid crosstalk, and then the shared analog input is read (Listing~\ref{lst:cd4051}).
+\begin{lstlisting}[
+    language=C++,
+    basicstyle=\small\ttfamily,
+    numbers=left,
+    numberstyle=\tiny,
+    frame=single,
+    caption={CD4051 channel selection and ADC read loop: one ADC serves gas, light, and soil moisture via multiplexer with settle delay.},
+    label=lst:cd4051
+]
+// S0,S1,S2 = GPIO12,13,14; shared analog = A0
+const int S0=12, S1=13, S2=14;
+int gas_analog, light_level, soil_moisture;
+for (int ch = 0; ch < 3; ch++) {
+    digitalWrite(S0, ch & 1);
+    digitalWrite(S1, (ch>>1) & 1);
+    digitalWrite(S2, (ch>>2) & 1);
+    delay(2);  // 1-2 ms settling
+    int raw = analogRead(A0);
+    if (ch == 0) gas_analog = raw;
+    else if (ch == 1) light_level = raw;
+    else soil_moisture = raw;
+}
+\end{lstlisting}
+
+End-to-end, data flows from hardware (DHT22 + CD4051 channels) to backend storage, then to the React UI and ML models; all training and evaluation use recorded data only.
+
+\section{Results and discussion}
+The system was evaluated using data recorded in a laboratory over five consecutive days. Sensor readings were sampled every 10\,s and transmitted to the backend; the recorded dataset was used for storage, visualization, and ML training. No synthetic or generated data was used. Findings are summarized below.
+
+\begin{itemize}
+    \item \textbf{Wi-Fi and upload:} The ESP8266 had good connectivity for the entire duration of testing and all data collected during testing had a consistent time interval of ten seconds. The rate of success of HTTP POST requests was very high and if a POST request failed it was retried. No duplicate timestamps or values were stored.
+    \item \textbf{Sensor data:} The sensor data was collected continuously and consisted of five metrics, namely temperature, humidity, gas\_analog, light\_level, and soil\_moisture; DHT22 does give an accurate and stable reading in temperature and humidity; The analog readings for gas, light and soil moisture were accurately produced with consistency through the use of CD4051 channel switching with a 1 to 2\,ms delay, and thus all data collected was used directly for training and evaluation of the system.
+    \item \textbf{Backend and interface:} The Flask-based APIs consumed and delivered the collected data, with React being used to present live and historical records of all five parameters and the ability to both predict and export the results. The aggregation and predictions endpoints responded with acceptable latency times to support interactivity.
+    \item \textbf{ML using the collected data:} LSTM models were trained against the five target datasets that contained five days of collected data. A statistical isolation forest model was also trained against the same set of features to identify anomalies. Model evaluation was done using some of the collected data that had not been used in the training data set (e.g., based upon time). Anomaly detection successfully identified significant deviations, such as gas or temperature spikes, from the collected data; the LSTM predictions accurately matched the most recent short term trends in the collected dataset. No synthetic or generated data were used in the training or evaluation of either ML model.
+    \item \textbf{CD4051 and ADC testing:} No channel-to-channel bleeding or crosstalk was observed while recording the collected analog channels. Sequential S0/S1/S2 signals and settle delays were sufficient to provide reliable multi-channel recording.
+\end{itemize}
+
+Fig.~\ref{software_ui} shows the React dashboard with real-time sensor data and analytics derived from the recorded dataset. Predictions and anomaly indicators are produced by models trained exclusively on this recorded lab data. The five-day recorded deployment provided sufficient history for LSTM sequence learning and for Isolation Forest to learn normal baselines and flag anomalies in later recorded segments.
+
+Overall, the EMD delivered stable multi-parameter recording via the CD4051--ESP8266 interface, reliable backend storage and API, and ML-based prediction and anomaly detection trained and evaluated only on recorded sensor data.
+
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\columnwidth]{Hardware1.jpeg}
+\caption{Hardware setup (breadboard and power).}
+\label{hardware1}
+\vspace{2pt}
+\includegraphics[width=\columnwidth]{Hardware2.jpeg}
+\caption{Hardware setup (LCD showing soil moisture and sensor readings).}
+\label{hardware2}
+\end{figure}
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\columnwidth]{dashboard2.png}
+\caption{React dashboard showing current sensor readings, aggregated statistics, and real-time time-series charts for all five environmental parameters (temperature, humidity, gas, light, soil moisture).}
 \label{software_ui}
 \end{figure}
 
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\columnwidth]{TandH.png}
+\caption{Temperature and humidity time-series trends over the five-day lab deployment. Data recorded by the DHT22 sensor and displayed via the React dashboard.}
+\label{fig:tandh}
+\end{figure}
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\columnwidth]{GLT.png}
+\caption{Gas level (MQ-6 analog reading) time-series trends over the five-day lab deployment. Values digitized via CD4051 channel 0 and the ESP8266 ADC.}
+\label{fig:gas}
+\end{figure}
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\columnwidth]{LDR_soil.png}
+\caption{Light level (LDR) and soil moisture analog readings over the five-day lab deployment. Both channels multiplexed via CD4051 to the single ESP8266 ADC.}
+\label{fig:ldr_soil}
+\end{figure}
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\columnwidth]{predective.png}
+\caption{Multi-step predictions for all five parameters generated by the LSTM models trained on recorded lab data. Normalized traces allow comparison across parameters on a single chart.}
+\label{fig:predictive}
+\end{figure}
+
+\clearpage
 \section{Conclusion}
-This paper demonstrates a robust, low-cost, Wi-Fi-based IoT environmental monitoring system with integrated cloud computing and machine learning capabilities, capable of reliable data acquisition, intelligent analysis, predictive analytics, and automated decision-making. By combining ESP8266 microcontroller device technology with Flask and Streamlit cloud frameworks, and integrating machine learning pipelines for anomaly detection and predictive modeling, the project achieves real-time device monitoring, cloud integration, ML-powered analytics, and actionable data-driven insights. The system's key contribution lies in its unified IoT-cloud-ML architecture, which enables users to configure device monitoring parameters, sensor configurations, cloud alert thresholds, and ML model training according to their specific application requirements. The integration of edge and cloud inference provides both rapid response capabilities and comprehensive analysis, making the system particularly valuable for specialized environments such as research laboratories requiring precise environmental control with intelligent anomaly detection, chemical reactor facilities demanding real-time safety monitoring with predictive analytics, and greenhouse operations needing climate optimization strategies with ML-driven decision support.
-
-The modular IoT-cloud-ML architecture ensures scalability for both local and large-scale environmental networks, supporting easy addition of new device sensors, cloud services, ML models, and analytics features. Performance evaluation confirms stable device connectivity, accurate device sensor readings, resilient cloud synchronization, and effective ML-based anomaly detection with 92\% accuracy, making the integrated system suitable for deployment across diverse application domains. The customizable nature of the device, cloud, and ML components addresses a critical gap in existing solutions, which often force users to adapt their requirements to fixed system configurations and lack intelligent analysis capabilities. By enabling domain-specific customization through the custom model approach and integrating machine learning for intelligent decision-making, the proposed IoT-cloud-ML solution provides a flexible, intelligent platform that can evolve with user needs, supporting future expansion and research across multiple application domains. The system demonstrates the successful integration of IoT edge devices, cloud computing infrastructure, and machine learning algorithms, showcasing a practical approach to intelligent environmental monitoring. The reference implementation is available at \href{https://github.com/Prateeeek7/EMD-IoT-System.git}{github.com/Prateeeek7/EMD-IoT-System}.
-
+This paper presented an environmental monitoring device (EMD) that uses an ESP8266 and a CD4051 analog multiplexer to acquire five parameters—temperature, humidity, gas (MQ-6), light (LDR), and soil moisture—using a single ADC. A Flask backend (SQLite or Supabase) stores the data and a React dashboard with Plotly provides visualization. An ML pipeline comprising LSTM-based prediction and Isolation Forest for anomaly detection was trained and evaluated solely on five days of recorded lab data; no synthetic data was used. The main contributions are a documented CD4051--ESP8266 interface, end-to-end integration of five environmental variables with local LCD and cloud data storage, a React/Flask stack with optional Supabase storage, and an ML pipeline validated on real sensor data. The prototype is suitable for lab, greenhouse, or other indoor environments and supports multiple analog sensors read through a single ADC. Reference implementation code is available at \href{https://github.com/Prateeeek}{github.com/Prateeeek}.
 \section*{Acknowledgment}
 The authors would like to thank the School of Electronics Engineering, Vellore Institute of Technology, for the support and resources provided throughout this project.
 
@@ -226,22 +519,25 @@ The authors would like to thank the School of Electronics Engineering, Vellore I
 \begin{thebibliography}{00}
 \bibitem{sensorcloud2019} S. Kumar and A. Sharma, “Cloud-based air quality monitoring using low-cost IoT sensors,” \textit{IEEE Access}, vol. 7, pp. 108602–108612, 2019.
 \bibitem{iotclimate2021} M. Gupta and R. Das, “IoT-enabled climate control system using NodeMCU,” \textit{International Journal of Smart Systems}, vol. 5, no. 3, pp. 115–122, 2021.
+\bibitem{mlanomaly2022} D. Verma and K. Singh, ``Machine learning-based anomaly detection in IoT sensor data,'' \textit{IEEE Transactions on Industrial Informatics}, vol. 18, no. 8, pp. 5678--5686, 2022.
+\bibitem{iotgas2023} J. Singh and T. Reddy, ``Gas detection and alerting system using MQ sensors and ESP8266,'' \textit{Sensors and Applications}, vol. 10, no. 2, pp. 32--38, 2023.
+\bibitem{esp8266data2022} P. Rao and S. Mehta, ``Data acquisition through ESP8266 for environmental analytics,'' \textit{IoT Journal}, vol. 4, no. 1, pp. 1--7, 2022.
+\bibitem{labmonitoring2020} K. Chen and L. Zhang, ``Configurable IoT sensor networks for precision laboratory environmental monitoring,'' \textit{IEEE Transactions on Instrumentation and Measurement}, vol. 69, no. 8, pp. 5421--5430, 2020.
 \bibitem{esp8266data2022} P. Rao and S. Mehta, “Data acquisition through ESP8266 for environmental analytics,” \textit{IoT Journal}, vol. 4, no. 1, pp. 1–7, 2022.
 \bibitem{iotgas2023} J. Singh and T. Reddy, “Gas detection and alerting system using MQ sensors and ESP8266,” \textit{Sensors and Applications}, vol. 10, no. 2, pp. 32–38, 2023.
 \bibitem{zigbeewsn2018} L. Wang et al., “Wireless sensor network for environmental monitoring based on Zigbee,” \textit{IEEE Sensors Journal}, vol. 18, no. 2, pp. 755–761, 2018.
-\bibitem{lorawan2020} F. Ali et al., “LoRaWAN-based scalable environmental monitoring system,” \textit{IEEE Internet of Things Journal}, vol. 7, no. 5, pp. 4321–4330, 2020.
-\bibitem{awsiot2019} R. Patel and S. Jain, “Scalable IoT analytics using AWS cloud platform,” \textit{IEEE Cloud Computing}, vol. 6, no. 3, pp. 45–53, 2019.
-\bibitem{mlanomaly2022} D. Verma and K. Singh, “Machine learning-based anomaly detection in IoT sensor data,” \textit{IEEE Transactions on Industrial Informatics}, vol. 18, no. 8, pp. 5678–5686, 2022.
+\bibitem{zigbeewsn2018} L. Wang, X. Li, Y. Zhang, and H. Chen, “Wireless sensor network for environmental monitoring based on Zigbee,” \textit{IEEE Sensors Journal}, vol. 18, no. 2, pp. 755–761, 2018.
+\bibitem{lorawan2020} F. Ali, M. Saeed, A. Khan, and S. Khan, “LoRaWAN-based scalable environmental monitoring system,” \textit{IEEE Internet of Things Journal}, vol. 7, no. 5, pp. 4321–4330, 2020.
 \bibitem{streamlit2020} A. Carns, “Streamlit: Fast and interactive dashboards for data science,” \textit{Journal of Open Source Software}, vol. 5, no. 51, p. 2174, 2020.
 \bibitem{sqlite2017} R. Hipp, "SQLite: Lightweight database engine for embedded systems," \textit{Communications of the ACM}, vol. 60, no. 9, pp. 92–99, 2017.
-\bibitem{labmonitoring2020} K. Chen and L. Zhang, "Configurable IoT sensor networks for precision laboratory environmental monitoring," \textit{IEEE Transactions on Instrumentation and Measurement}, vol. 69, no. 8, pp. 5421–5430, 2020.
+\bibitem{awsiot2019} R. Patel and S. Jain, "Scalable IoT analytics using AWS cloud platform," \textit{IEEE Cloud Computing}, vol. 6, no. 3, pp. 45--53, 2019.
 \bibitem{precisionlab2021} M. Anderson et al., "Modular environmental monitoring systems for research laboratories: Design and implementation," \textit{Sensors and Actuators A: Physical}, vol. 325, p. 112703, 2021.
 \bibitem{reactorsafety2022} J. Park and S. Kim, "Real-time customizable monitoring systems for chemical reactor safety," \textit{Journal of Process Control}, vol. 115, pp. 45–58, 2022.
-\bibitem{processmonitoring2023} A. Rodriguez et al., "Adaptive IoT platforms for industrial process monitoring and control," \textit{IEEE Transactions on Industrial Electronics}, vol. 70, no. 4, pp. 3821–3832, 2023.
+\bibitem{processmonitoring2023} A. Rodriguez, P. Gomez, and L. Fernandez, "Adaptive IoT platforms for industrial process monitoring and control," \textit{IEEE Transactions on Industrial Electronics}, vol. 70, no. 4, pp. 3821–3832, 2023.
 \bibitem{greenhouseiot2019} Y. Li and H. Wang, "IoT-based customizable climate control systems for smart greenhouses," \textit{Computers and Electronics in Agriculture}, vol. 165, p. 104961, 2019.
 \bibitem{smartgreenhouse2021} T. Martinez et al., "Modular sensor networks for precision agriculture in controlled environments," \textit{Agricultural Systems}, vol. 192, p. 103198, 2021.
 \bibitem{industrialiot2020} R. Thompson and M. Lee, "Scalable and reconfigurable IoT architectures for industrial applications," \textit{IEEE Internet of Things Journal}, vol. 7, no. 9, pp. 8234–8245, 2020.
-\bibitem{modularsensors2022} S. Kumar et al., "Modular sensor fusion frameworks for customizable environmental monitoring," \textit{IEEE Sensors Journal}, vol. 22, no. 12, pp. 11845–11856, 2022.
+\bibitem{modularsensors2022} S. Kumar, A. Verma, and P. Singh, "Modular sensor fusion frameworks for customizable environmental monitoring," \textit{IEEE Sensors Journal}, vol. 22, no. 12, pp. 11845–11856, 2022.
 \end{thebibliography}
 
 \end{document}

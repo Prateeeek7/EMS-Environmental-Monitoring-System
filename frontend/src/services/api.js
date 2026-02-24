@@ -27,6 +27,8 @@ export const predictionsAPI = {
   predictTemperature: (hours = 24) => api.get(`/predict/temperature?hours=${hours}`),
   predictHumidity: (hours = 24) => api.get(`/predict/humidity?hours=${hours}`),
   predictGas: (hours = 24) => api.get(`/predict/gas?hours=${hours}`),
+  predictLightLevel: (hours = 24) => api.get(`/predict/light?hours=${hours}`),
+  predictSoilMoisture: (hours = 24) => api.get(`/predict/soil?hours=${hours}`),
   getAnomalies: (window = 24) => api.get(`/anomalies?window=${window}`)
 }
 

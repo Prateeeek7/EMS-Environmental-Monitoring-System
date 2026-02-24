@@ -89,6 +89,52 @@ def predict_gas():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@predictions_bp.route('/predict/light', methods=['GET'])
+def predict_light():
+    """Predict future light level values"""
+    if prediction_service is None:
+        return jsonify({
+            'error': 'Prediction service not available',
+            'message': 'ML models are not available. Please check dependencies.'
+        }), 503
+    try:
+        hours = int(request.args.get('hours', 24))
+        hours = max(1, min(hours, 168))
+        
+        result = prediction_service.get_prediction_summary('light_level', hours=hours)
+        if result is None:
+            return jsonify({
+                'error': 'Model not available or insufficient data',
+                'message': 'Please train the model first'
+            }), 404
+        
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@predictions_bp.route('/predict/soil', methods=['GET'])
+def predict_soil():
+    """Predict future soil moisture values"""
+    if prediction_service is None:
+        return jsonify({
+            'error': 'Prediction service not available',
+            'message': 'ML models are not available. Please check dependencies.'
+        }), 503
+    try:
+        hours = int(request.args.get('hours', 24))
+        hours = max(1, min(hours, 168))
+        
+        result = prediction_service.get_prediction_summary('soil_moisture', hours=hours)
+        if result is None:
+            return jsonify({
+                'error': 'Model not available or insufficient data',
+                'message': 'Please train the model first'
+            }), 404
+        
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @predictions_bp.route('/anomalies', methods=['GET'])
 def get_anomalies():
     """Get detected anomalies"""

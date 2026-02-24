@@ -67,17 +67,21 @@ def receive_sensor_data():
         humidity = data.get('humidity')
         gas_analog = data.get('gas_analog')
         gas_digital = data.get('gas_digital')
+        light_level = data.get('light_level')
+        soil_moisture = data.get('soil_moisture')
         
-        # Store in database using abstraction layer
+        # Store in database using abstraction layer (same record, same timestamp)
         reading = db.insert_sensor_reading(
             device_id=device_id,
             temperature=temperature,
             humidity=humidity,
             gas_analog=gas_analog,
-            gas_digital=gas_digital
+            gas_digital=gas_digital,
+            light_level=light_level,
+            soil_moisture=soil_moisture
         )
         
-        print(f"✓ Data received: T={temperature}°C, H={humidity}%, Gas={gas_analog}")
+        print(f"✓ Data received: T={temperature}°C, H={humidity}%, Gas={gas_analog}, Light={light_level}, Soil={soil_moisture}")
         
         return jsonify({
             'status': 'success',
@@ -126,7 +130,9 @@ def get_latest():
                 'temperature': reading['temperature'],
                 'humidity': reading['humidity'],
                 'gas_analog': reading['gas_analog'],
-                'gas_digital': reading['gas_digital']
+                'gas_digital': reading['gas_digital'],
+                'light_level': reading.get('light_level'),
+                'soil_moisture': reading.get('soil_moisture')
             }), 200
         else:
             return jsonify({'message': 'No data available'}), 404
@@ -185,6 +191,8 @@ if __name__ == '__main__':
     print("  GET  /api/predict/temperature  - Predict temperature")
     print("  GET  /api/predict/humidity     - Predict humidity")
     print("  GET  /api/predict/gas          - Predict gas levels")
+    print("  GET  /api/predict/light        - Predict light level")
+    print("  GET  /api/predict/soil         - Predict soil moisture")
     print("  GET  /api/anomalies            - Get anomalies")
     print("  GET  /api/analytics/statistics - Statistical analysis")
     print("  GET  /api/analytics/correlation - Correlation matrix")

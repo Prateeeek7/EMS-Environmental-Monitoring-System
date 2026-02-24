@@ -44,8 +44,8 @@ function Dashboard() {
         </Typography>
 
         {latestData && (
-          <Grid container spacing={3} sx={{ mb: 4 }}>
-            <Grid item xs={12} sm={6} md={3}>
+          <Grid container spacing={1.5} sx={{ mb: 3 }}>
+            <Grid item xs={6} sm={4} md={2}>
               <MetricCard
                 title="Temperature"
                 value={latestData.temperature}
@@ -53,7 +53,7 @@ function Dashboard() {
                 color="#ff6b6b"
               />
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid item xs={6} sm={4} md={2}>
               <MetricCard
                 title="Humidity"
                 value={latestData.humidity}
@@ -61,7 +61,7 @@ function Dashboard() {
                 color="#4ecdc4"
               />
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid item xs={6} sm={4} md={2}>
               <MetricCard
                 title="Gas Level"
                 value={latestData.gas_analog}
@@ -69,7 +69,23 @@ function Dashboard() {
                 color="#95e1d3"
               />
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid item xs={6} sm={4} md={2}>
+              <MetricCard
+                title="Light Level (LDR)"
+                value={latestData.light_level}
+                unit="/1024"
+                color="#636e72"
+              />
+            </Grid>
+            <Grid item xs={6} sm={4} md={2}>
+              <MetricCard
+                title="Soil Moisture"
+                value={latestData.soil_moisture}
+                unit="/1024"
+                color="#2d3436"
+              />
+            </Grid>
+            <Grid item xs={6} sm={4} md={2}>
               <MetricCard
                 title="Last Update"
                 value={new Date(latestData.timestamp).toLocaleTimeString()}
@@ -81,32 +97,39 @@ function Dashboard() {
         )}
 
         {stats && (
-          <Paper sx={{ p: 3, mb: 3, backgroundColor: '#f5f5f5' }}>
-            <Typography variant="h6" gutterBottom sx={{ color: '#000000', mb: 2 }}>
+          <Paper sx={{ p: 2, mb: 3, backgroundColor: '#f5f5f5' }}>
+            <Typography variant="subtitle1" gutterBottom sx={{ color: '#000000', mb: 1.5 }}>
               Statistics (Last 24 Hours)
             </Typography>
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={4}>
-                <Typography variant="body2" sx={{ color: '#666666' }}>Temperature</Typography>
-                <Typography variant="body1" sx={{ color: '#000000' }}>
-                  Avg: {stats.temperature?.average?.toFixed(1)}°C | 
-                  Min: {stats.temperature?.min?.toFixed(1)}°C | 
-                  Max: {stats.temperature?.max?.toFixed(1)}°C
+            <Grid container spacing={1.5}>
+              <Grid item xs={12} sm={6} md={2.4}>
+                <Typography variant="caption" sx={{ color: '#666666', display: 'block' }}>Temperature</Typography>
+                <Typography variant="body2" sx={{ color: '#000000' }}>
+                  Avg: {stats.temperature?.average?.toFixed(1) ?? '—'}°C | Min: {stats.temperature?.min?.toFixed(1) ?? '—'}°C | Max: {stats.temperature?.max?.toFixed(1) ?? '—'}°C
                 </Typography>
               </Grid>
-              <Grid item xs={12} md={4}>
-                <Typography variant="body2" sx={{ color: '#666666' }}>Humidity</Typography>
-                <Typography variant="body1" sx={{ color: '#000000' }}>
-                  Avg: {stats.humidity?.average?.toFixed(1)}% | 
-                  Min: {stats.humidity?.min?.toFixed(1)}% | 
-                  Max: {stats.humidity?.max?.toFixed(1)}%
+              <Grid item xs={12} sm={6} md={2.4}>
+                <Typography variant="caption" sx={{ color: '#666666', display: 'block' }}>Humidity</Typography>
+                <Typography variant="body2" sx={{ color: '#000000' }}>
+                  Avg: {stats.humidity?.average?.toFixed(1) ?? '—'}% | Min: {stats.humidity?.min?.toFixed(1) ?? '—'}% | Max: {stats.humidity?.max?.toFixed(1) ?? '—'}%
                 </Typography>
               </Grid>
-              <Grid item xs={12} md={4}>
-                <Typography variant="body2" sx={{ color: '#666666' }}>Gas Level</Typography>
-                <Typography variant="body1" sx={{ color: '#000000' }}>
-                  Avg: {stats.gas?.average?.toFixed(0)} | 
-                  Max: {stats.gas?.max?.toFixed(0)}
+              <Grid item xs={12} sm={6} md={2.4}>
+                <Typography variant="caption" sx={{ color: '#666666', display: 'block' }}>Gas Level</Typography>
+                <Typography variant="body2" sx={{ color: '#000000' }}>
+                  Avg: {stats.gas?.average?.toFixed(0) ?? '—'} | Max: {stats.gas?.max?.toFixed(0) ?? '—'}
+                </Typography>
+              </Grid>
+              <Grid item xs={12} sm={6} md={2.4}>
+                <Typography variant="caption" sx={{ color: '#666666', display: 'block' }}>Light Level (LDR)</Typography>
+                <Typography variant="body2" sx={{ color: '#000000' }}>
+                  Avg: {stats.light_level?.average?.toFixed(0) ?? '—'} | Max: {stats.light_level?.max?.toFixed(0) ?? '—'}
+                </Typography>
+              </Grid>
+              <Grid item xs={12} sm={6} md={2.4}>
+                <Typography variant="caption" sx={{ color: '#666666', display: 'block' }}>Soil Moisture</Typography>
+                <Typography variant="body2" sx={{ color: '#000000' }}>
+                  Avg: {stats.soil_moisture?.average?.toFixed(0) ?? '—'} | Max: {stats.soil_moisture?.max?.toFixed(0) ?? '—'}
                 </Typography>
               </Grid>
             </Grid>

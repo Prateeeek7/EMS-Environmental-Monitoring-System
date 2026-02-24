@@ -44,6 +44,12 @@ class DataPreprocessor:
         """Create additional features from sensor data"""
         df = df.copy()
         
+        # Ensure numeric columns have no None/object types so diff() and rolling() work
+        for col in ['temperature', 'humidity', 'gas_analog', 'light_level', 'soil_moisture']:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+                df[col] = df[col].ffill().bfill().fillna(0)
+        
         # Time-based features
         df['hour'] = df['timestamp'].dt.hour
         df['day_of_week'] = df['timestamp'].dt.dayofweek
@@ -56,18 +62,30 @@ class DataPreprocessor:
         df['temp_rolling_std'] = df['temperature'].rolling(window=window, min_periods=1).std()
         df['humidity_rolling_mean'] = df['humidity'].rolling(window=window, min_periods=1).mean()
         df['gas_rolling_mean'] = df['gas_analog'].rolling(window=window, min_periods=1).mean()
-        
+        if 'light_level' in df.columns:
+            df['light_rolling_mean'] = df['light_level'].rolling(window=window, min_periods=1).mean()
+        if 'soil_moisture' in df.columns:
+            df['soil_rolling_mean'] = df['soil_moisture'].rolling(window=window, min_periods=1).mean()
+
         # Fill NaN values from rolling stats
         df['temp_rolling_mean'] = df['temp_rolling_mean'].fillna(df['temperature'])
         df['temp_rolling_std'] = df['temp_rolling_std'].fillna(0)
         df['humidity_rolling_mean'] = df['humidity_rolling_mean'].fillna(df['humidity'])
         df['gas_rolling_mean'] = df['gas_rolling_mean'].fillna(df['gas_analog'])
-        
-        # Rate of change
+        if 'light_rolling_mean' in df.columns:
+            df['light_rolling_mean'] = df['light_rolling_mean'].fillna(df['light_level'])
+        if 'soil_rolling_mean' in df.columns:
+            df['soil_rolling_mean'] = df['soil_rolling_mean'].fillna(df['soil_moisture'])
+
+        # Rate of change (columns are numeric and filled above)
         df['temp_change'] = df['temperature'].diff().fillna(0)
         df['humidity_change'] = df['humidity'].diff().fillna(0)
         df['gas_change'] = df['gas_analog'].diff().fillna(0)
-        
+        if 'light_level' in df.columns:
+            df['light_change'] = df['light_level'].diff().fillna(0)
+        if 'soil_moisture' in df.columns:
+            df['soil_change'] = df['soil_moisture'].diff().fillna(0)
+
         # Interaction features
         df['temp_humidity_interaction'] = df['temperature'] * df['humidity']
         df['gas_temp_interaction'] = df['gas_analog'] * df['temperature']
@@ -85,46 +103,45 @@ class DataPreprocessor:
             prediction_horizon: Number of steps ahead to predict
         """
         if df.empty:
-            return None, None, None
-            
+            return None, None, None, None
         df = self.create_features(df)
-        
-        # Select features
-        feature_columns = ['temperature', 'humidity', 'gas_analog', 'hour', 'day_of_week',
-                          'temp_rolling_mean', 'humidity_rolling_mean', 'gas_rolling_mean',
-                          'temp_change', 'humidity_change', 'gas_change']
-        
-        # Ensure all columns exist
+
+        # Select features (include light/soil when present so LSTM can use all sensor data)
+        feature_columns = [
+            'temperature', 'humidity', 'gas_analog', 'hour', 'day_of_week',
+            'temp_rolling_mean', 'humidity_rolling_mean', 'gas_rolling_mean',
+            'temp_change', 'humidity_change', 'gas_change'
+        ]
+        if 'light_level' in df.columns:
+            feature_columns.extend(['light_level', 'light_rolling_mean', 'light_change'])
+        if 'soil_moisture' in df.columns:
+            feature_columns.extend(['soil_moisture', 'soil_rolling_mean', 'soil_change'])
+
         available_features = [col for col in feature_columns if col in df.columns]
-        
+        if target_column not in df.columns:
+            return None, None, None, None
         X_data = df[available_features].values
         y_data = df[target_column].values
-        
-        # Normalize features
+
+        # Normalize features and target (save y_scaler so predictions can be inverse-transformed to real units)
         X_scaled = self.feature_scaler.fit_transform(X_data)
-        y_scaled = StandardScaler().fit_transform(y_data.reshape(-1, 1)).flatten()
-        
+        y_scaler = StandardScaler()
+        y_scaled = y_scaler.fit_transform(y_data.reshape(-1, 1)).flatten()
+
         X_sequences = []
         y_sequences = []
-        
         for i in range(sequence_length, len(X_scaled) - prediction_horizon + 1):
             X_sequences.append(X_scaled[i-sequence_length:i])
             y_sequences.append(y_scaled[i + prediction_horizon - 1])
-        
         if len(X_sequences) == 0:
-            return None, None, None
-            
+            return None, None, None, None
+
         X_sequences = np.array(X_sequences)
         y_sequences = np.array(y_sequences)
-        
-        # Split into train and test (80/20)
         split_index = int(len(X_sequences) * 0.8)
-        X_train = X_sequences[:split_index]
-        X_test = X_sequences[split_index:]
-        y_train = y_sequences[:split_index]
-        y_test = y_sequences[split_index:]
-        
-        return (X_train, y_train), (X_test, y_test), self.feature_scaler
+        X_train, X_test = X_sequences[:split_index], X_sequences[split_index:]
+        y_train, y_test = y_sequences[:split_index], y_sequences[split_index:]
+        return (X_train, y_train), (X_test, y_test), self.feature_scaler, y_scaler
     
     def prepare_anomaly_data(self, df):
         """Prepare data for anomaly detection"""
@@ -133,18 +150,23 @@ class DataPreprocessor:
             
         df = self.create_features(df)
         
-        # Select features for anomaly detection
-        feature_columns = ['temperature', 'humidity', 'gas_analog',
-                          'temp_rolling_mean', 'humidity_rolling_mean', 'gas_rolling_mean',
-                          'temp_change', 'humidity_change', 'gas_change']
-        
+        # Select features for anomaly detection (include light/soil when present)
+        feature_columns = [
+            'temperature', 'humidity', 'gas_analog',
+            'temp_rolling_mean', 'humidity_rolling_mean', 'gas_rolling_mean',
+            'temp_change', 'humidity_change', 'gas_change'
+        ]
+        if 'light_level' in df.columns:
+            feature_columns.extend(['light_level', 'light_rolling_mean', 'light_change'])
+        if 'soil_moisture' in df.columns:
+            feature_columns.extend(['soil_moisture', 'soil_rolling_mean', 'soil_change'])
+
         available_features = [col for col in feature_columns if col in df.columns]
-        
-        X_data = df[available_features].values
-        
-        # Normalize
+        X_df = df[available_features].copy()
+        X_df = X_df.fillna(X_df.mean())
+        X_data = X_df.values
+        X_data = np.nan_to_num(X_data, nan=0.0, posinf=0.0, neginf=0.0)
         X_scaled = self.feature_scaler.fit_transform(X_data)
-        
         return X_scaled
     
     def normalize_sensor_data(self, df, fit=True):

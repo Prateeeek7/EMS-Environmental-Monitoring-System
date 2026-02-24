@@ -19,7 +19,9 @@ function RealTimeCharts() {
         timestamp: new Date(item.timestamp),
         temperature: item.temperature,
         humidity: item.humidity,
-        gas_analog: item.gas_analog
+        gas_analog: item.gas_analog,
+        light_level: item.light_level,
+        soil_moisture: item.soil_moisture
       }))
       setSensorData(data)
     } catch (error) {
@@ -39,9 +41,11 @@ function RealTimeCharts() {
   const temperatures = sensorData.map(d => d.temperature)
   const humidities = sensorData.map(d => d.humidity)
   const gasLevels = sensorData.map(d => d.gas_analog)
+  const lightLevels = sensorData.map(d => d.light_level)
+  const soilLevels = sensorData.map(d => d.soil_moisture)
 
   return (
-    <Box>
+    <Box sx={{ maxWidth: 900, mx: 'auto' }}>
       <Paper sx={{ p: 3, mb: 3, backgroundColor: '#f5f5f5' }}>
         <Typography variant="h6" gutterBottom sx={{ color: '#000000', mb: 2 }}>
           Temperature and Humidity Trends
@@ -69,13 +73,14 @@ function RealTimeCharts() {
           ]}
           layout={{
             title: '',
-            xaxis: { title: 'Time', color: '#000000' },
-            yaxis: { title: 'Temperature (°C)', side: 'left', color: '#ff6b6b' },
-            yaxis2: { title: 'Humidity (%)', side: 'right', overlaying: 'y', color: '#4ecdc4' },
+            xaxis: { title: 'Time', color: '#000000', tickfont: { size: 11 }, titlefont: { size: 12 } },
+            yaxis: { title: 'Temperature (°C)', side: 'left', color: '#ff6b6b', tickfont: { size: 11 }, titlefont: { size: 12 } },
+            yaxis2: { title: 'Humidity (%)', side: 'right', overlaying: 'y', color: '#4ecdc4', tickfont: { size: 11 }, titlefont: { size: 12 } },
             plot_bgcolor: '#ffffff',
             paper_bgcolor: '#ffffff',
-            font: { color: '#000000' },
+            font: { color: '#000000', size: 11 },
             showlegend: true,
+            legend: { font: { size: 11 } },
             height: 400,
             margin: { l: 60, r: 60, t: 20, b: 60 }
           }}
@@ -83,7 +88,7 @@ function RealTimeCharts() {
         />
       </Paper>
 
-      <Paper sx={{ p: 3, backgroundColor: '#f5f5f5' }}>
+      <Paper sx={{ p: 3, mb: 3, backgroundColor: '#f5f5f5' }}>
         <Typography variant="h6" gutterBottom sx={{ color: '#000000', mb: 2 }}>
           Gas Level Trends
         </Typography>
@@ -102,12 +107,55 @@ function RealTimeCharts() {
           ]}
           layout={{
             title: '',
-            xaxis: { title: 'Time', color: '#000000' },
-            yaxis: { title: 'Gas Level (/1024)', color: '#000000' },
+            xaxis: { title: 'Time', color: '#000000', tickfont: { size: 11 }, titlefont: { size: 12 } },
+            yaxis: { title: 'Gas Level (/1024)', color: '#000000', tickfont: { size: 11 }, titlefont: { size: 12 } },
             plot_bgcolor: '#ffffff',
             paper_bgcolor: '#ffffff',
-            font: { color: '#000000' },
+            font: { color: '#000000', size: 11 },
             showlegend: true,
+            legend: { font: { size: 11 } },
+            height: 400,
+            margin: { l: 60, r: 60, t: 20, b: 60 }
+          }}
+          style={{ width: '100%', height: '400px' }}
+        />
+      </Paper>
+
+      <Paper sx={{ p: 3, backgroundColor: '#f5f5f5' }}>
+        <Typography variant="h6" gutterBottom sx={{ color: '#000000', mb: 2 }}>
+          LDR & Soil Moisture Trends
+        </Typography>
+        <Plot
+          data={[
+            {
+              x: timestamps,
+              y: lightLevels,
+              type: 'scatter',
+              mode: 'lines',
+              name: 'Light Level (LDR)',
+              line: { color: '#f39c12', width: 2 },
+              yaxis: 'y'
+            },
+            {
+              x: timestamps,
+              y: soilLevels,
+              type: 'scatter',
+              mode: 'lines',
+              name: 'Soil Moisture',
+              line: { color: '#9b59b6', width: 2 },
+              yaxis: 'y2'
+            }
+          ]}
+          layout={{
+            title: '',
+            xaxis: { title: 'Time', color: '#000000', tickfont: { size: 11 }, titlefont: { size: 12 } },
+            yaxis: { title: 'Light Level (/1024)', side: 'left', color: '#f39c12', tickfont: { size: 11 }, titlefont: { size: 12 } },
+            yaxis2: { title: 'Soil Moisture (/1024)', side: 'right', overlaying: 'y', color: '#9b59b6', tickfont: { size: 11 }, titlefont: { size: 12 } },
+            plot_bgcolor: '#ffffff',
+            paper_bgcolor: '#ffffff',
+            font: { color: '#000000', size: 11 },
+            showlegend: true,
+            legend: { font: { size: 11 } },
             height: 400,
             margin: { l: 60, r: 60, t: 20, b: 60 }
           }}

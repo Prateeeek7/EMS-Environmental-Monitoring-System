@@ -47,6 +47,13 @@ This will install:
 4. Click **Run** (or press Cmd/Ctrl + Enter)
 5. Verify the table was created by going to **Table Editor** → `sensor_readings`
 
+**If the table already existed** (before light_level/soil_moisture were added), run this in the SQL Editor to add the new columns:
+
+```sql
+ALTER TABLE sensor_readings ADD COLUMN IF NOT EXISTS light_level INTEGER;
+ALTER TABLE sensor_readings ADD COLUMN IF NOT EXISTS soil_moisture INTEGER;
+```
+
 ## Step 5: Configure Environment Variables
 
 1. Copy `.env.example` to `.env`:
@@ -75,9 +82,9 @@ python import_training_data.py
 ```
 
 This script will:
-- Load all records from `training_data.json`
+- Load all records from `training_data.json` (including `light_level` and `soil_moisture` if present)
 - Connect to Supabase (if `USE_SUPABASE=true`) or SQLite (if `USE_SUPABASE=false`)
-- Import all sensor readings in batches
+- Import all sensor readings in batches (temperature, humidity, gas_analog, gas_digital, light_level, soil_moisture)
 - Show progress and any errors
 
 **Expected output:**
